@@ -5,9 +5,12 @@
  *   JWT_PRIVATE_KEY y JWKS  claves para el inicio de sesión del docente
  *   SITE_URL                dirección de la web (por defecto la de `npm run dev`)
  *   MAIL_PROVIDER=console   el código para recuperar la contraseña sale en `npx convex logs`
+ *                           (solo en desarrollo: en producción no se toca, para que la app
+ *                           avise que el correo no está configurado en vez de fingir que envió)
  *
  * Solo agrega las variables que faltan; nunca reemplaza las que ya existen.
- * Uso: npm run setup            (o: npm run setup -- --site-url https://mi-app.pages.dev)
+ * Uso: npm run setup                                   (desarrollo)
+ *      npm run setup -- --prod --site-url https://robolab.vercel.app   (producción)
  */
 import { spawnSync } from "node:child_process";
 import { createPublicKey, generateKeyPairSync, randomBytes } from "node:crypto";
@@ -16,12 +19,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const DEFAULT_SITE_URL = "http://localhost:5173";
+const prod = process.argv.includes("--prod");
 
 const quote = (arg) => (/^[\w./:=-]+$/.test(arg) ? arg : `"${arg.replace(/"/g, '\\"')}"`);
 
 function convex(args) {
   // npx en Windows es un .cmd: se ejecuta por la consola con el comando ya armado y entre comillas.
-  const result = spawnSync(["npx", "convex", ...args].map(quote).join(" "), { encoding: "utf8", shell: true });
+  const command = ["npx", "convex", ...args, ...(prod ? ["--prod"] : [])];
+  const result = spawnSync(command.map(quote).join(" "), { encoding: "utf8", shell: true });
   if (result.status !== 0) {
     process.stderr.write(result.stderr ?? "");
     throw new Error(`Falló: npx convex ${args[0]} ${args[1] ?? ""}`);
@@ -36,6 +41,10 @@ if (!existsSync(".env.local")) {
 
 const siteFlag = process.argv.indexOf("--site-url");
 const siteUrl = siteFlag > 0 ? process.argv[siteFlag + 1] : DEFAULT_SITE_URL;
+if (prod && !/^https:\/\//.test(siteUrl)) {
+  console.error("Con --prod indica la dirección pública de la web: --site-url https://…");
+  process.exit(1);
+}
 
 const existing = new Set(
   convex(["env", "list"])
@@ -57,7 +66,7 @@ if (!existing.has("JWT_PRIVATE_KEY") || !existing.has("JWKS")) {
   wanted.push(["JWKS", `'${JSON.stringify({ keys: [{ use: "sig", ...jwk }] })}'`]);
 }
 if (!existing.has("SITE_URL")) wanted.push(["SITE_URL", siteUrl]);
-if (!existing.has("MAIL_PROVIDER")) wanted.push(["MAIL_PROVIDER", "console"]);
+if (!prod && !existing.has("MAIL_PROVIDER")) wanted.push(["MAIL_PROVIDER", "console"]);
 
 if (wanted.length === 0) {
   console.log("El despliegue ya estaba listo: no se cambió nada.");
@@ -72,4 +81,4 @@ try {
 } finally {
   rmSync(file, { force: true });
 }
-console.log(`Listo. Se configuró: ${wanted.map(([name]) => name).join(", ")}.`);
+console.log(`Listo${prod ? " (producción)" : ""}. Se configuró: ${wanted.map(([name]) => name).join(", ")}.`);
