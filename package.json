@@ -11,6 +11,7 @@
     "dev": "vite",
     "dev:backend": "convex dev",
     "setup": "node scripts/setup.mjs",
+    "robot:simulador": "node scripts/robot-sim.mjs",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",

@@ -111,23 +111,39 @@ export default defineSchema({
   // Robots físicos (ESP32 por wifi). La clave solo se guarda cifrada (SHA-256).
   robots: defineTable({
     name: v.string(),
-    code: v.string(),
+    code: v.string(), // código de emparejamiento (6 caracteres)
+    codeExpiresAt: v.optional(v.number()),
     keyHash: v.string(),
     createdAt: v.number(),
     lastSeenAt: v.optional(v.number()),
-  }).index("by_code", ["code"]),
+  })
+    .index("by_code", ["code"])
+    .index("by_key_hash", ["keyHash"]),
 
-  // Programas enviados a un robot, en letras (A R D Z).
+  // Programas enviados a un robot, en letras (A R D Z), y lo que respondió.
   robotCommands: defineTable({
     robotId: v.id("robots"),
     letters: v.string(),
-    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("done"), v.literal("replaced")),
+    status: v.union(
+      v.literal("pending"), // en cola
+      v.literal("sent"), // el robot lo recogió
+      v.literal("received"), // OK
+      v.literal("running"), // RUN
+      v.literal("done"), // DONE
+      v.literal("failed"), // ERR:<código>
+      v.literal("replaced"), // de la versión anterior del relé
+      v.literal("expired"), // el robot no dio noticias a tiempo
+    ),
+    error: v.optional(v.string()),
+    requestId: v.optional(v.string()), // id de envío de la web (idempotencia)
     createdAt: v.number(),
     sentAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
     doneAt: v.optional(v.number()),
   })
     .index("by_robot", ["robotId"])
-    .index("by_robot_status", ["robotId", "status"]),
+    .index("by_robot_status", ["robotId", "status"])
+    .index("by_robot_request", ["robotId", "requestId"]),
 
   // Registro de cada correo pedido: confirma si salió y sirve para frenar abusos.
   emailDeliveries: defineTable({

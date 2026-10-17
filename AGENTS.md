@@ -21,6 +21,8 @@ Un agente sin cuenta de Convex puede levantar el backend local sin preguntas con
 Útiles: `npx convex run demo:seed '{"email":"…","today":"AAAA-MM-DD"}'` (datos de
 ejemplo), `npx convex run robot:register '{"name":"Kusi"}'` (robot por wifi),
 `npx convex run explore:stats` (uso anónimo), `npx convex logs` (correos en modo consola).
+Robot: `npm run robot:simulador -- --clave <clave>` hace de robot sin placa; el
+protocolo está en `docs/robot-wifi.md` (D gira a la izquierda, Z a la derecha).
 
 ## Arquitectura (respétala)
 

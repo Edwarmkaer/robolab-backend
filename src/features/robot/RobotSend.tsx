@@ -29,10 +29,21 @@ function writeLinked(code: string) {
 
 const STEP_TEXT = {
   pending: "Esperando al robot…",
-  sent: "El robot lo está haciendo…",
+  sent: "El robot lo recogió…",
+  received: "El robot recibió el programa.",
+  running: "El robot lo está haciendo…",
   done: "¡El robot terminó!",
+  failed: "El robot avisó un problema",
   replaced: "Se envió otro programa después.",
+  expired: "El robot no respondió.",
 } as const;
+
+const ROBOT_ERRORS: Record<string, string> = {
+  BAD_CHAR: "una letra no válida",
+  TOO_LONG: "el programa es muy largo",
+  BUSY: "estaba ocupado",
+  MOTOR: "falla de motor",
+};
 
 /** Enviar el programa al robot físico (ESP32 por wifi), además de verlo en pantalla. */
 export function RobotSend({ program, disabled }: { program: Program; disabled: boolean }) {
@@ -71,7 +82,8 @@ export function RobotSend({ program, disabled }: { program: Program; disabled: b
     setBusy(true);
     setError(null);
     try {
-      const result = await send({ code, program: [...program] });
+      // Un id por envío: si la red reintenta, el robot no lo hace dos veces.
+      const result = await send({ code, program: [...program], requestId: crypto.randomUUID() });
       toast(`Enviado a ${result.robotName}: ${result.letters}`);
     } catch (e) {
       setError(userMessage(e, "No pudimos enviar el programa al robot."));
@@ -103,7 +115,7 @@ export function RobotSend({ program, disabled }: { program: Program; disabled: b
             Cancelar
           </button>
         </div>
-        <span className="hint">Está en la etiqueta del robot. El robot necesita wifi con internet.</span>
+        <span className="hint">Es el código de 6 letras que muestra el robot. El robot necesita wifi con internet.</span>
         {error && <span className="field-error">{error}</span>}
       </form>
     ) : (
@@ -114,6 +126,7 @@ export function RobotSend({ program, disabled }: { program: Program; disabled: b
   }
 
   const online = status?.lastSeenAt != null && now - status.lastSeenAt < ONLINE_MS;
+  const expired = status != null && status.codeExpiresAt <= now;
   const last = status?.lastCommand;
 
   return (
@@ -121,18 +134,32 @@ export function RobotSend({ program, disabled }: { program: Program; disabled: b
       <div className="row spread" style={{ gap: 8 }}>
         <span className="robot-state" data-online={online}>
           <span aria-hidden="true" className="dot" />
-          {status === undefined ? "Buscando robot…" : status === null ? "Robot no encontrado" : `${status.name} · ${online ? "conectado" : "sin señal"}`}
+          {status === undefined
+            ? "Buscando robot…"
+            : status === null
+              ? "Robot no encontrado"
+              : expired
+                ? `${status.name} · el código venció`
+                : `${status.name} · ${online ? "conectado" : "sin señal"}`}
         </span>
         <button className="link-btn small" type="button" onClick={() => setLinking(true)}>
           Cambiar
         </button>
       </div>
-      <button className="btn btn-sm" type="button" disabled={disabled || busy || program.length === 0 || !status} onClick={() => void sendProgram()} aria-busy={busy}>
+      {expired && <span className="hint">El robot muestra un código nuevo cada 12 horas. Toca «Cambiar» y escríbelo.</span>}
+      <button
+        className="btn btn-sm"
+        type="button"
+        disabled={disabled || busy || program.length === 0 || !status || expired}
+        onClick={() => void sendProgram()}
+        aria-busy={busy}
+      >
         🤖 Enviar al robot
       </button>
       {last && (
         <span className="small muted" role="status">
           <span className="code">{last.letters}</span> · {STEP_TEXT[last.status]}
+          {last.status === "failed" && `: ${ROBOT_ERRORS[last.error ?? ""] ?? last.error ?? "sin detalle"}.`}
         </span>
       )}
       {error && <span className="field-error">{error}</span>}

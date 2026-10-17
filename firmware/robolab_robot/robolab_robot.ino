@@ -1,12 +1,16 @@
-// RoboLab: el robot pide su programa por wifi y lo ejecuta.
+// RoboLab: el robot recibe su programa por wifi y lo ejecuta (contrato robot-protocol.md).
 //
-// Cada medio segundo pregunta al backend si hay un programa para él.
-// Recibe texto con una letra por paso (los bucles ya vienen desplegados):
-//   A avanzar · R retroceder · D girar a la derecha · Z girar a la izquierda
-// Al terminar avisa con POST /robot/hecho para que la app muestre "¡El robot terminó!".
+// Cada medio segundo pregunta al relé si hay un programa. Lo recibe como texto
+// ("AADZAA") o, con PEDIR_ARRAY, como arreglo JSON (["A","A","D","Z","A","A"]).
+// Una letra por paso, con los bucles ya desplegados, máximo 128:
+//   A  avanzar 1 casilla
+//   R  retroceder 1 casilla (sin girar)
+//   D  girar sobre su sitio: dir = (dir + 270) % 360  -> a la IZQUIERDA
+//   Z  girar sobre su sitio: dir = (dir + 90)  % 360  -> a la DERECHA
+// (dir: 0 arriba, 90 derecha, 180 abajo, 270 izquierda, visto desde arriba).
+// Responde OK al recibir, RUN al empezar, DONE al terminar o ERR:<código>.
 //
-// Lo único que hay que completar son las 4 funciones de movimiento con el
-// código de motores que ya tienen (el del kit de 2025 usa las mismas letras).
+// Lo único que hay que completar son las 4 funciones de movimiento.
 
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -18,14 +22,17 @@ const char* WIFI_CLAVE = "CLAVE_DEL_WIFI";
 // En la nube: "https://<despliegue>.convex.site".
 // En pruebas locales: "http://<IP de la PC>:3211" (PC y robot en el mismo wifi).
 const char* SERVIDOR = "https://DESPLIEGUE.convex.site";
-const char* ROBOT_CODIGO = "CODIGO";  // el de la etiqueta (lo da robot:register)
-const char* ROBOT_CLAVE = "CLAVE";    // la clave que da robot:register; no la publiques
+const char* ROBOT_CLAVE = "CLAVE";  // la da robot:register; solo va aquí, no la publiques
 
-const unsigned long ESPERA_MS = 500;       // cada cuánto pregunta
+const bool PEDIR_ARRAY = false;  // true: el programa llega como ["A","A","D"]
+const unsigned long ESPERA_MS = 500;
 const unsigned long PAUSA_ENTRE_PASOS = 150;
+const unsigned long MOSTRAR_CODIGO_CADA_MS = 10UL * 60UL * 1000UL;
+const size_t MAX_PASOS = 128;
 
 WiFiClientSecure clienteSeguro;
 WiFiClient clienteSimple;
+unsigned long ultimoCodigoMostrado = 0;
 
 // ---- Movimientos: completar con los motores del robot ----
 void avanzar() {
@@ -36,30 +43,17 @@ void retroceder() {
   // Una casilla hacia atrás, sin girar.
 }
 
-void girarDerecha() {
-  // 90 grados a la derecha, sin avanzar.
-}
-
-void girarIzquierda() {
+void girarIzquierda() {  // letra D
   // 90 grados a la izquierda, sin avanzar.
 }
 
-void ejecutar(const String& programa) {
-  for (size_t i = 0; i < programa.length(); i++) {
-    switch (programa[i]) {
-      case 'A': avanzar(); break;
-      case 'R': retroceder(); break;
-      case 'D': girarDerecha(); break;
-      case 'Z': girarIzquierda(); break;
-      default: continue;  // salto de línea u otro carácter: se ignora
-    }
-    delay(PAUSA_ENTRE_PASOS);
-  }
+void girarDerecha() {  // letra Z
+  // 90 grados a la derecha, sin avanzar.
 }
 
-// Prepara la petición con la clave en el encabezado (no en la dirección).
-bool abrir(HTTPClient& http, const char* ruta) {
-  String url = String(SERVIDOR) + ruta + "?codigo=" + ROBOT_CODIGO;
+// ---- Comunicación con el relé ----
+bool abrir(HTTPClient& http, const String& ruta) {
+  String url = String(SERVIDOR) + ruta;
   bool ok;
   if (url.startsWith("https")) {
     clienteSeguro.setInsecure();  // sin verificar el certificado: aceptable para la demo
@@ -71,11 +65,56 @@ bool abrir(HTTPClient& http, const char* ruta) {
   return ok;
 }
 
-void avisarQueTermino() {
+void responder(const String& mensaje) {  // OK, RUN, DONE o ERR:<código>
   HTTPClient http;
-  if (abrir(http, "/robot/hecho")) {
-    http.POST("");
+  if (abrir(http, "/robot/estado")) {
+    http.addHeader("Content-Type", "text/plain");
+    http.POST(mensaje);
     http.end();
+  }
+}
+
+void mostrarCodigo() {
+  HTTPClient http;
+  if (!abrir(http, "/robot/codigo")) return;
+  const char* encabezados[] = {"X-Vence-En"};
+  http.collectHeaders(encabezados, 1);
+  if (http.GET() == 200) {
+    // Si el robot tiene pantalla, mostrar aquí el código: es el que se escribe en la web.
+    Serial.println("Codigo del robot: " + http.getString() + " (vence en " + http.header("X-Vence-En") + " s)");
+  } else {
+    Serial.println("No se pudo leer el codigo: revisa SERVIDOR y ROBOT_CLAVE");
+  }
+  http.end();
+  ultimoCodigoMostrado = millis();
+}
+
+// Extrae las letras del cuerpo: sirve igual para "AADZAA" y para ["A","A","D","Z","A","A"].
+String letrasDe(const String& cuerpo, bool& letraInvalida) {
+  String letras;
+  letraInvalida = false;
+  for (size_t i = 0; i < cuerpo.length(); i++) {
+    char c = cuerpo[i];
+    if (PEDIR_ARRAY && (c == '[' || c == ']' || c == ',' || c == '"' || c == ' ' || c == '\n' || c == '\r')) continue;
+    if (!PEDIR_ARRAY && (c == '\n' || c == '\r')) continue;
+    if (c == 'A' || c == 'R' || c == 'D' || c == 'Z') {
+      letras += c;
+    } else {
+      letraInvalida = true;
+    }
+  }
+  return letras;
+}
+
+void ejecutar(const String& programa) {
+  for (size_t i = 0; i < programa.length(); i++) {
+    switch (programa[i]) {
+      case 'A': avanzar(); break;
+      case 'R': retroceder(); break;
+      case 'D': girarIzquierda(); break;
+      case 'Z': girarDerecha(); break;
+    }
+    delay(PAUSA_ENTRE_PASOS);
   }
 }
 
@@ -88,6 +127,7 @@ void setup() {
     Serial.print(".");
   }
   Serial.println("\nWifi conectado: " + WiFi.localIP().toString());
+  mostrarCodigo();
 }
 
 void loop() {
@@ -96,20 +136,30 @@ void loop() {
     delay(1000);
     return;
   }
+  if (millis() - ultimoCodigoMostrado > MOSTRAR_CODIGO_CADA_MS) mostrarCodigo();
 
   HTTPClient http;
-  if (abrir(http, "/robot/siguiente")) {
+  if (abrir(http, PEDIR_ARRAY ? "/robot/siguiente?formato=array" : "/robot/siguiente")) {
     int estado = http.GET();
     if (estado == 200) {  // hay un programa
-      String programa = http.getString();
+      String cuerpo = http.getString();
       http.end();
-      programa.trim();
+      bool letraInvalida;
+      String programa = letrasDe(cuerpo, letraInvalida);
       Serial.println("Programa: " + programa);
-      ejecutar(programa);
-      avisarQueTermino();
+      if (letraInvalida || programa.length() == 0) {
+        responder("ERR:BAD_CHAR");
+      } else if (programa.length() > MAX_PASOS) {
+        responder("ERR:TOO_LONG");
+      } else {
+        responder("OK");
+        responder("RUN");
+        ejecutar(programa);  // si un motor falla, responder("ERR:MOTOR") en lugar de DONE
+        responder("DONE");
+      }
     } else {
-      // 204: no hay nada nuevo. 401: código o clave incorrectos.
-      if (estado == 401) Serial.println("Codigo o clave del robot incorrectos");
+      // 204: no hay nada nuevo. 401: clave incorrecta. Negativo: sin respuesta del servidor.
+      if (estado == 401) Serial.println("Clave del robot incorrecta");
       else if (estado < 0) Serial.println("Sin respuesta del servidor");
       http.end();
     }
