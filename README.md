@@ -177,6 +177,26 @@ Para enviar correos de verdad, el despliegue necesita `MAIL_PROVIDER=resend`,
 `RESEND_API_KEY` y `MAIL_FROM` (con `npx convex env set`, nunca en el código).
 `.env.example` resume todas las variables.
 
+### Producción (Convex en la nube + Vercel)
+
+1. **Backend.** Con sesión iniciada en Convex (`npx convex login`), crear el
+   proyecto y el despliegue de producción: `npx convex dev --once --configure=new`
+   y luego `npx convex deploy`. Configurarlo una vez con
+   `npm run setup -- --prod --site-url https://<la web en Vercel>`: genera las
+   claves de sesión y fija `SITE_URL`; no toca `MAIL_PROVIDER`, así la app avisa
+   que el correo no está configurado hasta que se agregue Resend.
+2. **Web.** Importar el repositorio en Vercel (framework Vite). Para que el
+   backend se despliegue junto con cada versión de la web, en Vercel:
+   - Build Command: `npx convex deploy --cmd 'npm run build'`
+   - Variable `CONVEX_DEPLOY_KEY`: una *production deploy key* generada en el
+     panel de Convex (Settings → Deploy keys). Con ella, Convex sube las
+     funciones y define `VITE_CONVEX_URL` durante el build.
+   `vercel.json` ya trae las reglas de la SPA (toda ruta carga `index.html`) y
+   los encabezados de seguridad.
+3. **Robot y otras webs.** `npx convex run robot:register --prod '{"name":"Kusi"}'`
+   da la clave del firmware; `npx convex env set --prod ROBOT_WEB_ORIGINS https://<otra web>`
+   permite que otra web use las rutas `/robot/web/*`.
+
 ### Datos de demostración
 
 Para presentar la gráfica con historia: registrar un docente en la app y luego
