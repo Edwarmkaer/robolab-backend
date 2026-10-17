@@ -1,13 +1,14 @@
 /**
  * Adaptador WiFi para la interfaz RobotLink del contrato (robot-protocol.md, §6).
- * No depende de React ni de Convex: otra web lo puede copiar tal cual.
+ * No importa nada (ni React ni Convex): otra web copia este archivo tal cual.
  *
  * Habla con las rutas del relé:
  *   POST {baseUrl}/robot/web/enviar   {"codigo","secuencia","id"}
  *   GET  {baseUrl}/robot/web/estado?codigo=…&id=…
  * baseUrl es la dirección de las rutas HTTP del backend (…convex.site).
+ * El relé normaliza el código y valida las letras (ERR:BAD_CHAR, ERR:TOO_LONG);
+ * aquí solo se traducen sus respuestas a eventos.
  */
-import { normalizeRobotCode, validateSequence } from "../../domain/robot/protocol";
 
 export type RobotState = "off" | "connecting" | "connected" | "running" | "error";
 export type RobotEvent =
@@ -43,6 +44,7 @@ export function createWifiLink({ baseUrl, code, fetchImpl = fetch, pollMs = 500,
   const listeners = new Set<(e: RobotEvent) => void>();
   const emit = (e: RobotEvent) => listeners.forEach((l) => l(e));
   const base = baseUrl.replace(/\/$/, "");
+  const statusUrl = (robotCode: string) => `${base}/robot/web/estado?codigo=${encodeURIComponent(robotCode)}`;
   let pairedCode: string | null = null;
   let polling: ReturnType<typeof setTimeout> | null = null;
 
@@ -55,14 +57,22 @@ export function createWifiLink({ baseUrl, code, fetchImpl = fetch, pollMs = 500,
     return (await response.json().catch(() => ({}))) as { estado?: string | null; robot?: string; id?: string };
   }
 
-  function follow(id: string, startedAt: number, seen: Set<string>) {
+  function follow(robotCode: string, id: string, startedAt: number, seen: Set<string>) {
     polling = setTimeout(async () => {
       try {
-        const response = await fetchImpl(`${base}/robot/web/estado?codigo=${pairedCode}&id=${encodeURIComponent(id)}`);
+        const response = await fetchImpl(`${statusUrl(robotCode)}&id=${encodeURIComponent(id)}`);
         const estado = (await readJson(response)).estado ?? "";
-        if (estado === "OK" && !seen.has("OK")) emit({ type: "received" });
-        if (estado === "RUN" && !seen.has("RUN")) emit({ type: "state", state: "running" });
-        seen.add(estado);
+        // El robot responde OK y RUN casi juntos: si una consulta se salta un paso,
+        // se avisa igual, en orden (llegó → corre → terminó).
+        const step = ["OK", "RUN", "DONE"].indexOf(estado);
+        if (step >= 0 && !seen.has("OK")) {
+          seen.add("OK");
+          emit({ type: "received" });
+        }
+        if (step >= 1 && !seen.has("RUN")) {
+          seen.add("RUN");
+          emit({ type: "state", state: "running" });
+        }
         if (estado === "DONE") {
           emit({ type: "done" });
           emit({ type: "state", state: "connected" });
@@ -81,7 +91,7 @@ export function createWifiLink({ baseUrl, code, fetchImpl = fetch, pollMs = 500,
         emit({ type: "state", state: "connected" });
         return;
       }
-      follow(id, startedAt, seen);
+      follow(robotCode, id, startedAt, seen);
     }, pollMs);
   }
 
@@ -91,8 +101,8 @@ export function createWifiLink({ baseUrl, code, fetchImpl = fetch, pollMs = 500,
 
     async connect() {
       emit({ type: "state", state: "connecting" });
-      const candidate = normalizeRobotCode(await code());
-      const response = await fetchImpl(`${base}/robot/web/estado?codigo=${candidate}`);
+      const candidate = await code();
+      const response = await fetchImpl(statusUrl(candidate));
       const body = await readJson(response);
       if (!response.ok) {
         const reason = body.estado?.replace(/^ERR:/, "") ?? `HTTP_${response.status}`;
@@ -104,18 +114,14 @@ export function createWifiLink({ baseUrl, code, fetchImpl = fetch, pollMs = 500,
     },
 
     async send(sequence) {
-      if (!pairedCode) throw new Error("NOT_CONNECTED");
-      const check = validateSequence(sequence);
-      if (!check.ok) {
-        emit({ type: "failed", reason: check.error });
-        throw new Error(check.error);
-      }
+      const robotCode = pairedCode;
+      if (robotCode === null) throw new Error("NOT_CONNECTED");
       stopPolling();
       const id = newId();
       const response = await fetchImpl(`${base}/robot/web/enviar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codigo: pairedCode, secuencia: sequence, id }),
+        body: JSON.stringify({ codigo: robotCode, secuencia: sequence, id }),
       });
       const body = await readJson(response);
       if (!response.ok) {
@@ -123,7 +129,7 @@ export function createWifiLink({ baseUrl, code, fetchImpl = fetch, pollMs = 500,
         emit({ type: "failed", reason });
         throw new Error(reason);
       }
-      follow(id, Date.now(), new Set());
+      follow(robotCode, id, Date.now(), new Set());
     },
 
     async disconnect() {
