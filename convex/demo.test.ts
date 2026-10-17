@@ -105,6 +105,26 @@ describe("datos de demostración", () => {
     }
   });
 
+  it("incluye reintentos y cada ejecución anotada cuadra con las respuestas", async () => {
+    const { t, progress } = await seededProgress();
+    const tries = progress.students.flatMap((s) => s.series.map((p) => p.tries ?? 0));
+    expect(Math.max(...tries)).toBeGreaterThan(1);
+
+    const { runs, answerRuns, attempts } = await t.run(async (ctx) => ({
+      runs: await ctx.db.query("runs").collect(),
+      answerRuns: (await ctx.db.query("answers").collect()).reduce((s, a) => s + a.runs, 0),
+      attempts: await ctx.db.query("attempts").collect(),
+    }));
+    expect(runs.length).toBe(answerRuns);
+    expect(runs.filter((r) => r.outcome === "GOAL").length).toBe(
+      attempts.reduce((s, a) => s + (a.finishedAt !== undefined ? a.stage : 0), 0),
+    );
+
+    // Con la práctica se necesitan menos ejecuciones por estrella.
+    const past = progress.evaluations.slice(0, -1);
+    expect(past.at(-1)!.averageRunsPerStar!).toBeLessThan(past[0]!.averageRunsPerStar!);
+  });
+
   it("la evaluación de hoy se puede jugar en vivo con un código de la clase", async () => {
     const { t, teacher, created } = await seededProgress();
     const classroom = await teacher.query(api.classrooms.get, { classroomId: created.classroomId });

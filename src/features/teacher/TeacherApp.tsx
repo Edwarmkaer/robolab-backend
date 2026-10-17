@@ -1,6 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
-import { Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { APP_NAME } from "../../shared/brand";
 import { type IconName, Icon } from "../../shared/ui/Icon";
@@ -22,6 +22,7 @@ const TABS: readonly { to: string; label: string; icon: IconName; end: boolean }
 
 function TeacherShell() {
   const { signOut } = useAuthActions();
+  const navigate = useNavigate();
   const me = useQuery(api.users.me);
   const initial = me?.name.trim().charAt(0).toUpperCase() ?? "";
 
@@ -43,7 +44,12 @@ function TeacherShell() {
               </span>
             </>
           )}
-          <IconButton icon="logOut" label="Cerrar sesión" onClick={() => void signOut()} />
+          <IconButton
+            icon="logOut"
+            label="Cerrar sesión"
+            // Al salir vuelve a la portada, donde se elige "Soy alumno" o "Soy docente".
+            onClick={() => void signOut().then(() => navigate("/"))}
+          />
         </div>
       </header>
       <nav className="tabs" aria-label="Secciones del docente">

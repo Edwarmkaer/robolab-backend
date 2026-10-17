@@ -16,6 +16,10 @@ import { uniqueAccessCode } from "./lib/codes";
 import {
   ABSENCE_RATE,
   DEMO_CLASS,
+  MAX_DEMO_TRIES,
+  RETRY_BELOW_PERCENT,
+  RETRY_BOOST,
+  RETRY_RATE,
   DEMO_EVALUATIONS,
   DEMO_SEED,
   DEMO_STUDENTS,
@@ -96,38 +100,59 @@ export const seed = internalMutation({
       const keys = questions.map((q, i) => ({ questionId: questionIds[i]!, correctOption: q.correctOption, points: q.points }));
       for (const [turn, student] of students.entries()) {
         if (random() < ABSENCE_RATE) continue;
-        const startedAt = classTime(date) + turn * 4 * 60 * 1000; // pasan de a uno a la tablet
-        const simulated = simulateAttempt(random, student.profile, session, questions, startedAt);
-        const records = simulated.answers.map((a, i) => ({ ...a, questionId: questionIds[i]! }));
-        const result = gradeEvaluation(keys, records, startedAt, simulated.finishedAt);
+        let startedAt = classTime(date) + turn * 4 * 60 * 1000; // pasan de a uno a la tablet
+        for (let number = 1; number <= MAX_DEMO_TRIES; number++) {
+          // Al volver a intentarlo ya conoce los mapas: le va un poco mejor.
+          const practice = (number - 1) * RETRY_BOOST;
+          const simulated = simulateAttempt(random, student.profile, session + practice, questions, startedAt);
+          const records = simulated.answers.map((a, i) => ({ ...a, questionId: questionIds[i]! }));
+          const result = gradeEvaluation(keys, records, startedAt, simulated.finishedAt);
 
-        const attemptId = await ctx.db.insert("attempts", {
-          evaluationId,
-          studentId: student.id,
-          startedAt,
-          stage: questions.length,
-          finishedAt: simulated.finishedAt,
-          score: result.score,
-          maxScore: result.maxScore,
-          percent: result.percent,
-          totalMs: result.totalMs,
-        });
-        for (const [stage, graded] of result.answers.entries()) {
-          const raw = records[stage]!;
-          await ctx.db.insert("answers", {
-            attemptId,
-            questionId: questionIds[stage]!,
-            stage,
-            chosenOption: graded.chosenOption,
-            isCorrect: graded.isCorrect,
-            pointsAwarded: graded.pointsAwarded,
-            shownAt: graded.shownAt,
-            answeredAt: graded.answeredAt,
-            blocksUsed: raw.blocksUsed,
-            runs: raw.runs,
+          const attemptId = await ctx.db.insert("attempts", {
+            evaluationId,
+            studentId: student.id,
+            number,
+            startedAt,
+            stage: questions.length,
+            finishedAt: simulated.finishedAt,
+            score: result.score,
+            maxScore: result.maxScore,
+            percent: result.percent,
+            totalMs: result.totalMs,
+            totalRuns: records.reduce((sum, r) => sum + r.runs, 0),
           });
+          let previous = startedAt;
+          for (const [stage, graded] of result.answers.entries()) {
+            const raw = records[stage]!;
+            // Cada ejecución queda anotada: las fallidas repartidas en el tiempo de juego y la última llega.
+            for (let r = 1; r <= raw.runs; r++) {
+              const goal = r === raw.runs;
+              await ctx.db.insert("runs", {
+                attemptId,
+                stage,
+                outcome: goal ? "GOAL" : random() < 0.6 ? "OFF_PATH" : "INCOMPLETE",
+                blocks: raw.blocksUsed,
+                createdAt: Math.round(previous + ((raw.shownAt - previous) * r) / raw.runs),
+              });
+            }
+            await ctx.db.insert("answers", {
+              attemptId,
+              questionId: questionIds[stage]!,
+              stage,
+              chosenOption: graded.chosenOption,
+              isCorrect: graded.isCorrect,
+              pointsAwarded: graded.pointsAwarded,
+              shownAt: graded.shownAt,
+              answeredAt: graded.answeredAt,
+              blocksUsed: raw.blocksUsed,
+              runs: raw.runs,
+            });
+            previous = graded.answeredAt;
+          }
+          attempts++;
+          if (result.percent >= RETRY_BELOW_PERCENT || random() > RETRY_RATE) break;
+          startedAt = simulated.finishedAt + 60_000;
         }
-        attempts++;
       }
     }
 

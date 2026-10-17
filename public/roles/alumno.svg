@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Alumno">
+  <defs>
+    <clipPath id="marco"><circle cx="80" cy="80" r="78"/></clipPath>
+  </defs>
+  <circle cx="80" cy="80" r="78" fill="#f3e3b5"/>
+  <g clip-path="url(#marco)">
+    <path d="M38 162c0-30 18-44 42-44s42 14 42 44z" fill="#2f6fdc"/>
+    <path d="M60 122l5 40M100 122l-5 40" stroke="#f5b82e" stroke-width="8" stroke-linecap="round"/>
+    <rect x="72" y="100" width="16" height="20" rx="6" fill="#c98b5e"/>
+    <circle cx="49" cy="80" r="7" fill="#c98b5e"/>
+    <circle cx="111" cy="80" r="7" fill="#c98b5e"/>
+    <circle cx="80" cy="78" r="31" fill="#c98b5e"/>
+    <path d="M49 78c-3-25 12-38 31-38s35 12 31 38c-6-11-14-16-24-16-5 7-16 9-27 5-5 3-8 7-11 11z" fill="#3b2a20"/>
+    <circle cx="70" cy="83" r="3.6" fill="#1f2430"/>
+    <circle cx="90" cy="83" r="3.6" fill="#1f2430"/>
+    <circle cx="63" cy="93" r="4.5" fill="#e8907a" opacity=".6"/>
+    <circle cx="97" cy="93" r="4.5" fill="#e8907a" opacity=".6"/>
+    <path d="M72 95q8 7 16 0" fill="none" stroke="#1f2430" stroke-width="2.6" stroke-linecap="round"/>
+  </g>
+</svg>

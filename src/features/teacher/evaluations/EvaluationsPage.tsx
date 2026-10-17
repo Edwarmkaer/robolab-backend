@@ -36,6 +36,9 @@ export function EvaluationsPage() {
                 <th>Clase</th>
                 <th>Preguntas</th>
                 <th>Terminaron</th>
+                <th>
+                  <span className="sr-only">Ver</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -53,6 +56,16 @@ export function EvaluationsPage() {
                   <td>{e.questionCount}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     {e.finishedCount} de {e.studentCount}
+                  </td>
+                  <td style={{ width: 48, textAlign: "right" }}>
+                    <Link
+                      className="icon-btn"
+                      to={`/docente/evaluaciones/${e._id}`}
+                      aria-label={`Ver resultados de ${e.title}`}
+                      data-tooltip="Ver resultados"
+                    >
+                      <Icon name="eye" />
+                    </Link>
                   </td>
                 </tr>
               ))}

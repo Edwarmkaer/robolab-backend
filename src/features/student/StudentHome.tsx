@@ -14,6 +14,7 @@ export function StudentHome({ token, onSignOut }: Props) {
   const today = localCalendarDate();
   const home = useQuery(api.student.home, { token, today });
   const start = useMutation(api.student.start);
+  const retry = useMutation(api.student.retry);
   const signOut = useMutation(api.student.signOut);
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -35,9 +36,21 @@ export function StudentHome({ token, onSignOut }: Props) {
     }
   }
 
+  async function playAgain() {
+    if (!evaluation) return;
+    setError(null);
+    try {
+      navigate(`/alumno/juego/${await retry({ token, evaluationId: evaluation.evaluationId })}`);
+    } catch (e) {
+      setError(userMessage(e));
+    }
+  }
+
+  // Al salir vuelve a la portada, donde se elige "Soy alumno" o "Soy docente".
   async function leave() {
     await signOut({ token }).catch(() => undefined);
     onSignOut();
+    navigate("/");
   }
 
   return (
@@ -77,6 +90,11 @@ export function StudentHome({ token, onSignOut }: Props) {
                 {!evaluation.finished && <Icon name="play" />}
                 {evaluation.finished ? "Ver mi resultado" : evaluation.attemptId ? "Seguir jugando" : "¡Empezar!"}
               </button>
+              {evaluation.finished && (
+                <button className="btn" type="button" onClick={() => void playAgain()}>
+                  <Icon name="rotate" /> Intentar de nuevo
+                </button>
+              )}
             </>
           )}
         </section>

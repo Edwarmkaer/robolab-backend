@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, mutation, query } from "./_generated/server";
+import { rankStudents } from "../src/domain/evaluation/ranking";
 import { classroomLabel, requireOwnClassroom, requireOwnEvaluation, requireTeacher } from "./lib/access";
+import { attemptNumber, finishedAttempts, groupByStudent } from "./lib/attempts";
 import { LIMITS, cleanQuestions, cleanText, requireCalendarDate } from "./lib/rules";
 
 const questionInput = v.object({
@@ -49,7 +51,10 @@ async function summarize(ctx: QueryCtx, evaluation: Doc<"evaluations">) {
     .query("attempts")
     .withIndex("by_evaluation", (q) => q.eq("evaluationId", evaluation._id))
     .collect();
-  const finished = attempts.filter((a) => a.finishedAt !== undefined);
+  // Se cuentan alumnos, no intentos: quien la rinde dos veces sigue siendo una persona.
+  const byStudent = groupByStudent(attempts);
+  const finishedStudents = [...byStudent.values()].filter((list) => list.some((a) => a.finishedAt !== undefined));
+  const playing = [...byStudent.values()].filter((list) => list.at(-1)?.finishedAt === undefined);
   const students = await ctx.db
     .query("students")
     .withIndex("by_classroom", (q) => q.eq("classroomId", evaluation.classroomId))
@@ -64,8 +69,9 @@ async function summarize(ctx: QueryCtx, evaluation: Doc<"evaluations">) {
     questionCount: questions.length,
     maxScore: questions.reduce((s, q) => s + q.points, 0),
     studentCount: students.length,
-    startedCount: attempts.length,
-    finishedCount: finished.length,
+    startedCount: byStudent.size,
+    finishedCount: finishedStudents.length,
+    playingCount: playing.length,
   };
 }
 
@@ -112,7 +118,52 @@ export const get = query({
       .query("attempts")
       .withIndex("by_evaluation", (q) => q.eq("evaluationId", evaluationId))
       .collect();
-    const attemptByStudent = new Map(attempts.map((a) => [a.studentId, a]));
+    const byStudent = groupByStudent(attempts);
+
+    const ranked = rankStudents(
+      await Promise.all(
+        students.map(async (s) => ({ studentId: s._id, attempts: await finishedAttempts(ctx, byStudent.get(s._id) ?? []) })),
+      ),
+    );
+    const rankOf = new Map(ranked.map((r) => [r.studentId, r]));
+
+    const results = students.map((s) => {
+      const list = byStudent.get(s._id) ?? [];
+      const latest = list.at(-1);
+      const rank = rankOf.get(s._id);
+      const playing = latest !== undefined && latest.finishedAt === undefined;
+      const status = !latest
+        ? ("pending" as const)
+        : playing
+          ? rank
+            ? ("retrying" as const)
+            : ("in_progress" as const)
+          : ("finished" as const);
+      return {
+        studentId: s._id,
+        displayName: s.displayName,
+        status,
+        /** Etapa del intento en curso (o del último). */
+        stage: latest?.stage ?? 0,
+        attemptNumber: latest ? attemptNumber(latest) : 0,
+        position: rank?.position ?? null,
+        score: rank?.attempt.score ?? null,
+        percent: rank?.attempt.percent ?? null,
+        totalMs: rank?.attempt.totalMs ?? null,
+        runs: rank?.attempt.runs ?? null,
+        tries: rank?.tries ?? null,
+        totalTries: rank?.totalTries ?? 0,
+      };
+    });
+    // Primero el ranking; después quienes están jugando y al final quienes no empiezan.
+    const order = { finished: 0, retrying: 0, in_progress: 1, pending: 2 } as const;
+    results.sort(
+      (a, b) =>
+        order[a.status] - order[b.status] ||
+        (a.position ?? Infinity) - (b.position ?? Infinity) ||
+        a.displayName.localeCompare(b.displayName, "es"),
+    );
+
     return {
       ...summary,
       questions: questions.map((q) => ({
@@ -122,20 +173,7 @@ export const get = query({
         correctOption: q.correctOption,
         points: q.points,
       })),
-      results: students
-        .map((s) => {
-          const a = attemptByStudent.get(s._id);
-          return {
-            studentId: s._id,
-            displayName: s.displayName,
-            status: !a ? ("pending" as const) : a.finishedAt === undefined ? ("in_progress" as const) : ("finished" as const),
-            stage: a?.stage ?? 0,
-            score: a?.score ?? null,
-            percent: a?.percent ?? null,
-            totalMs: a?.totalMs ?? null,
-          };
-        })
-        .sort((x, y) => x.displayName.localeCompare(y.displayName, "es")),
+      results,
     };
   },
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LABEL_GAP, directLabels, yOf } from "./chartLayout";
+import { LABEL_GAP, M, PLOT_H, directLabels, scaleFor, yOf } from "./chartLayout";
 
 const xOf = (i: number) => 100 + i * 50;
 
@@ -35,5 +35,24 @@ describe("directLabels", () => {
       xOf,
     );
     expect(labels).toEqual([{ id: "ana", text: "Ana", x: 110, y: yOf(40) }]);
+  });
+});
+
+describe("escala del eje vertical", () => {
+  it("el logro va siempre de 0 a 100 en cuartos", () => {
+    expect(scaleFor(40, 100).ticks).toEqual([0, 25, 50, 75, 100]);
+  });
+
+  it("para otras medidas elige pasos redondos que cubren el máximo", () => {
+    expect(scaleFor(3.2).ticks).toEqual([0, 1, 2, 3, 4]);
+    expect(scaleFor(7.5).ticks).toEqual([0, 2, 4, 6, 8]);
+    expect(scaleFor(0.4).ticks).toEqual([0, 0.1, 0.2, 0.3, 0.4]);
+    expect(scaleFor(0).ticks).toEqual([0, 0.25, 0.5, 0.75, 1]);
+  });
+
+  it("ubica el tope arriba del área y el cero abajo", () => {
+    const scale = scaleFor(3.2);
+    expect(scale.yOf(scale.top)).toBe(M.top);
+    expect(scale.yOf(0)).toBe(M.top + PLOT_H);
   });
 });

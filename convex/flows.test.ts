@@ -2,6 +2,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 import { move } from "../src/domain/game/program";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { modules } from "./test.setup";
 
@@ -161,56 +162,105 @@ describe("alumno", () => {
     const attemptId = await t.mutation(api.student.start, { token, evaluationId });
     expect(await t.mutation(api.student.start, { token, evaluationId })).toBe(attemptId);
 
-    // Sin llegar a la estrella no hay pregunta.
+    // Sin llegar a la estrella no hay pregunta, pero la ejecución queda anotada.
+    expect(await t.mutation(api.student.submitRun, { token, attemptId, program: [move("FORWARD")] })).toEqual({
+      outcome: "INCOMPLETE",
+      question: null,
+    });
+    expect(
+      await t.mutation(api.student.submitRun, { token, attemptId, program: [move("TURN_LEFT"), move("FORWARD")] }),
+    ).toEqual({ outcome: "OFF_PATH", question: null });
     await expect(
-      t.mutation(api.student.reachObjective, { token, attemptId, program: [move("FORWARD")] }),
-    ).rejects.toThrow(/todavía no llega/);
-    await expect(
-      t.mutation(api.student.answer, { token, attemptId, chosenOption: 1, program: [], runs: 1 }),
+      t.mutation(api.student.answer, { token, attemptId, chosenOption: 1, program: [] }),
     ).rejects.toThrow(/Primero lleva/);
 
-    const q1 = await t.mutation(api.student.reachObjective, { token, attemptId, program: SOLUTIONS.stage0 });
-    expect(q1).toEqual({ stage: 0, prompt: QUESTIONS[0]!.prompt, options: QUESTIONS[0]!.options, points: 2 });
-    expect(q1).not.toHaveProperty("correctOption");
+    const run = await t.mutation(api.student.submitRun, { token, attemptId, program: SOLUTIONS.stage0 });
+    expect(run.outcome).toBe("GOAL");
+    expect(run.question).toEqual({ stage: 0, prompt: QUESTIONS[0]!.prompt, options: QUESTIONS[0]!.options, points: 2 });
+    expect(run.question).not.toHaveProperty("correctOption");
+    // Volver a pedirla (por ejemplo, al recargar) no suma otra ejecución.
+    await t.mutation(api.student.submitRun, { token, attemptId, program: SOLUTIONS.stage0 });
 
-    const a1 = await t.mutation(api.student.answer, {
-      token,
-      attemptId,
-      chosenOption: 1,
-      program: SOLUTIONS.stage0,
-      runs: 2,
-    });
+    const a1 = await t.mutation(api.student.answer, { token, attemptId, chosenOption: 1, program: SOLUTIONS.stage0 });
     expect(a1).toEqual({ isCorrect: true, finished: false });
 
     // La segunda etapa usa otro mapa: la solución de la primera ya no sirve.
-    await expect(
-      t.mutation(api.student.reachObjective, { token, attemptId, program: SOLUTIONS.stage0 }),
-    ).rejects.toThrow(/todavía no llega/);
-    await t.mutation(api.student.reachObjective, { token, attemptId, program: SOLUTIONS.stage1 });
-    const a2 = await t.mutation(api.student.answer, {
-      token,
-      attemptId,
-      chosenOption: 1,
-      program: SOLUTIONS.stage1,
-      runs: 1,
-    });
+    expect((await t.mutation(api.student.submitRun, { token, attemptId, program: SOLUTIONS.stage0 })).outcome).not.toBe(
+      "GOAL",
+    );
+    await t.mutation(api.student.submitRun, { token, attemptId, program: SOLUTIONS.stage1 });
+    const a2 = await t.mutation(api.student.answer, { token, attemptId, chosenOption: 1, program: SOLUTIONS.stage1 });
     expect(a2).toEqual({ isCorrect: false, finished: true });
 
     const result = await t.query(api.student.result, { token, attemptId });
-    expect(result).toMatchObject({ score: 2, maxScore: 5, percent: 40 });
-    expect(result?.answers.map((a) => a.isCorrect)).toEqual([true, false]);
+    expect(result).toMatchObject({ number: 1, score: 2, maxScore: 5, percent: 40, runs: 5 });
+    expect(result?.answers.map((a) => [a.isCorrect, a.runs])).toEqual([
+      [true, 3],
+      [false, 2],
+    ]);
 
     await expect(
-      t.mutation(api.student.reachObjective, { token, attemptId, program: SOLUTIONS.stage0 }),
+      t.mutation(api.student.submitRun, { token, attemptId, program: SOLUTIONS.stage0 }),
     ).rejects.toThrow(/Ya terminaste/);
 
     const detail = await teacher.query(api.evaluations.get, { evaluationId });
-    expect(detail.results.find((r) => r.displayName === "Ana")).toMatchObject({ status: "finished", percent: 40 });
-    expect(detail.results.find((r) => r.displayName === "Beto")).toMatchObject({ status: "pending" });
+    expect(detail.results.find((r) => r.displayName === "Ana")).toMatchObject({
+      status: "finished",
+      position: 1,
+      percent: 40,
+      runs: 5,
+      tries: 1,
+    });
+    expect(detail.results.find((r) => r.displayName === "Beto")).toMatchObject({ status: "pending", position: null });
 
     const progress = await teacher.query(api.analytics.classProgress, { classroomId });
-    expect(progress.evaluations).toMatchObject([{ title: "Animales y colores", average: 40, finishedCount: 1 }]);
-    expect(progress.students.find((s) => s.displayName === "Ana")?.series[0]?.percent).toBe(40);
+    expect(progress.evaluations).toMatchObject([
+      { title: "Animales y colores", average: 40, finishedCount: 1, averageRunsPerStar: 2.5, averageTries: 1 },
+    ]);
+    expect(progress.students.find((s) => s.displayName === "Ana")?.series[0]).toMatchObject({
+      percent: 40,
+      runsPerStar: 2.5,
+      tries: 1,
+    });
+  });
+
+  it("puede intentarlo de nuevo; cuenta su mejor puntaje y cuántas veces lo necesitó", async () => {
+    const { t, teacher, ana, beto, evaluationId } = await setup();
+    const play = async (token: string, attemptId: Id<"attempts">, answers: [number, number]) => {
+      await t.mutation(api.student.submitRun, { token, attemptId, program: SOLUTIONS.stage0 });
+      await t.mutation(api.student.answer, { token, attemptId, chosenOption: answers[0], program: [] });
+      await t.mutation(api.student.submitRun, { token, attemptId, program: SOLUTIONS.stage1 });
+      await t.mutation(api.student.answer, { token, attemptId, chosenOption: answers[1], program: [] });
+    };
+
+    // Beto: 2 de 5 a la primera.
+    const betoToken = await signInStudent(t, beto.accessCode);
+    await play(betoToken, await t.mutation(api.student.start, { token: betoToken, evaluationId }), [1, 1]);
+
+    // Ana: 0 de 5, y en su segunda vez 5 de 5.
+    const token = await signInStudent(t, ana.accessCode);
+    const first = await t.mutation(api.student.start, { token, evaluationId });
+    await expect(t.mutation(api.student.retry, { token, evaluationId })).resolves.toBe(first); // aún no termina
+    await play(token, first, [0, 1]);
+    const second = await t.mutation(api.student.retry, { token, evaluationId });
+    expect(second).not.toBe(first);
+    expect(await t.mutation(api.student.retry, { token, evaluationId })).toBe(second); // no abre dos a la vez
+
+    let detail = await teacher.query(api.evaluations.get, { evaluationId });
+    expect(detail.results.find((r) => r.displayName === "Ana")).toMatchObject({ status: "retrying", attemptNumber: 2, percent: 0 });
+    expect(detail).toMatchObject({ startedCount: 2, finishedCount: 2, playingCount: 1 });
+
+    await play(token, second, [1, 0]);
+    expect(await t.query(api.student.attempt, { token, attemptId: second })).toMatchObject({ number: 2, finished: true });
+    expect(await t.query(api.student.home, { token, today: TODAY })).toMatchObject({
+      evaluation: { attemptId: second, finished: true, tries: 2 },
+    });
+
+    detail = await teacher.query(api.evaluations.get, { evaluationId });
+    expect(detail.results.map((r) => [r.displayName, r.position, r.percent, r.tries])).toEqual([
+      ["Ana", 1, 100, 2],
+      ["Beto", 2, 40, 1],
+    ]);
   });
 
   it("rechaza bloques que su nivel no tiene", async () => {
@@ -218,7 +268,7 @@ describe("alumno", () => {
     const token = await signInStudent(t, ana.accessCode);
     const attemptId = await t.mutation(api.student.start, { token, evaluationId });
     await expect(
-      t.mutation(api.student.reachObjective, {
+      t.mutation(api.student.submitRun, {
         token,
         attemptId,
         program: [{ kind: "repeat", times: 3, body: [move("FORWARD")] }],

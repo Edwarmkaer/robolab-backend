@@ -46,7 +46,7 @@ export function HomePage() {
                 <Link key={e._id} className="card card-link" to={`/docente/evaluaciones/${e._id}`}>
                   <div className="row spread">
                     <strong>{e.title}</strong>
-                    {e.startedCount > e.finishedCount && <span className="live">En vivo</span>}
+                    {e.playingCount > 0 && <span className="live">En vivo</span>}
                   </div>
                   <span className="muted small">{e.classroomLabel}</span>
                   <div className="meter" role="img" aria-label={`${share} % de la clase terminó`}>
@@ -54,7 +54,7 @@ export function HomePage() {
                   </div>
                   <span className="small">
                     <strong>{e.finishedCount}</strong> de {e.studentCount} terminaron
-                    {e.startedCount > e.finishedCount && ` · ${e.startedCount - e.finishedCount} jugando`}
+                    {e.playingCount > 0 && ` · ${e.playingCount} jugando`}
                   </span>
                 </Link>
               );

@@ -28,9 +28,12 @@ Inicial y listo para crecer a Primaria y Secundaria.
 - Crea evaluaciones: título, clase, fecha y de 1 a 10 preguntas con 2 a 4
   alternativas (admiten emojis), respuesta correcta y puntaje. Puede ordenar
   las preguntas y deshacer una eliminación; cada error se marca en su campo.
-- Ve los resultados en vivo mientras los alumnos juegan.
-- Ve el desarrollo del aprendizaje: porcentaje de logro por evaluación, el
-  promedio de la clase y la comparación con cada alumno, con tabla de detalle.
+- Ve los resultados en vivo y un ranking que solo ve el docente: más puntaje;
+  a igual puntaje, menos veces rendida, menos intentos de ejecutar y menos
+  tiempo.
+- Ve el desarrollo del aprendizaje con cuatro medidas (logro, intentos por
+  estrella, tiempo y veces que la rindió), el promedio de la clase y la
+  comparación con cada alumno, con tabla de detalle.
 
 **Alumno**
 
@@ -40,7 +43,9 @@ Inicial y listo para crecer a Primaria y Secundaria.
   retroceder y repetir) y lo ejecuta. Si el robot se sale del camino, se le
   dice en qué paso y se marca ese bloque.
 - Al llegar a la estrella aparece la pregunta, que también se lee en voz alta.
-- Al final ve su puntaje, el tiempo total y el tiempo de cada respuesta.
+- Al final ve su puntaje, el tiempo total, cuántas veces ejecutó el robot y el
+  tiempo de cada respuesta. Puede intentarlo de nuevo: cuenta su mejor
+  puntaje y cuántas veces lo necesitó.
 
 ## Arquitectura
 
@@ -69,8 +74,9 @@ flowchart LR
 - **Dominio puro y compartido** (`src/domain`). Las reglas del juego y de la
   calificación no dependen de React ni de Convex. El navegador las usa para
   animar al robot y el servidor las usa para validar: es el mismo código.
-- **El servidor manda.** Cuando el alumno dice que llegó a la estrella, el
-  servidor vuelve a simular su programa; solo entonces muestra la pregunta.
+- **El servidor manda.** Cada vez que el alumno toca "Ejecutar", el servidor
+  simula el mismo programa y lo anota (así los intentos son confiables); solo
+  si llegó a la estrella muestra la pregunta.
   Los tiempos de respuesta salen del reloj del servidor.
 - **La respuesta correcta nunca viaja al alumno.** Las consultas del alumno
   devuelven la pregunta sin la alternativa correcta.

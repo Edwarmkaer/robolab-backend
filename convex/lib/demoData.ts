@@ -20,6 +20,13 @@ export const DEMO_SEED = 20261017;
 /** Probabilidad de faltar a una evaluación: deja huecos reales en la gráfica. */
 export const ABSENCE_RATE = 0.08;
 
+/** Quien saca menos de esto a veces vuelve a intentarlo, como haría en clase. */
+export const RETRY_BELOW_PERCENT = 75;
+export const RETRY_RATE = 0.5;
+export const MAX_DEMO_TRIES = 3;
+/** Cuánto ayuda haber jugado antes, en "evaluaciones de práctica" equivalentes. */
+export const RETRY_BOOST = 0.8;
+
 export type StudentProfile = {
   readonly name: string;
   /** Probabilidad de acertar en la primera evaluación. */
@@ -148,7 +155,8 @@ export function simulateAttempt(
       chosenOption,
       shownAt,
       answeredAt: now,
-      runs: 1 + Math.floor(random() * (skill > 0.7 ? 2 : 4)),
+      // Quien entiende mejor necesita menos ejecuciones para llegar a la estrella.
+      runs: 1 + Math.floor(random() * (1 + 4 * (1 - skill))),
       blocksUsed: 3 + Math.floor(random() * 4),
     };
   });

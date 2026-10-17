@@ -15,6 +15,7 @@ import type * as demo from "../demo.js";
 import type * as evaluations from "../evaluations.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_attempts from "../lib/attempts.js";
 import type * as lib_codes from "../lib/codes.js";
 import type * as lib_demoData from "../lib/demoData.js";
 import type * as lib_env from "../lib/env.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   evaluations: typeof evaluations;
   http: typeof http;
   "lib/access": typeof lib_access;
+  "lib/attempts": typeof lib_attempts;
   "lib/codes": typeof lib_codes;
   "lib/demoData": typeof lib_demoData;
   "lib/env": typeof lib_env;

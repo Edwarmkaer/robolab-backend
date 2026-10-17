@@ -1,10 +1,19 @@
 /**
- * Datos para el gráfico de desarrollo del aprendizaje: el porcentaje de cada
- * alumno en cada evaluación de la clase, en orden de fecha, y el promedio.
+ * Datos para el gráfico de desarrollo del aprendizaje. Por cada evaluación de
+ * la clase (en orden de fecha) y cada alumno se toma su mejor intento, con
+ * cuatro medidas: logro, intentos de ejecutar por estrella, tiempo y veces
+ * que rindió la evaluación hasta lograrlo. Si aprende, el logro sube y lo
+ * demás baja.
  */
 import { v } from "convex/values";
+import { type Best, bestOf } from "../src/domain/evaluation/ranking";
 import { query } from "./_generated/server";
 import { classroomLabel, requireOwnClassroom, requireTeacher } from "./lib/access";
+import { finishedAttempts, groupByStudent } from "./lib/attempts";
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const average = (values: readonly number[]) =>
+  values.length === 0 ? null : values.reduce((s, x) => s + x, 0) / values.length;
 
 export const classProgress = query({
   args: { classroomId: v.id("classrooms") },
@@ -22,37 +31,57 @@ export const classProgress = query({
 
     const points = await Promise.all(
       evaluations.map(async (e) => {
+        const questions = await ctx.db
+          .query("questions")
+          .withIndex("by_evaluation_order", (q) => q.eq("evaluationId", e._id))
+          .collect();
+        const stars = Math.max(1, questions.length);
         const attempts = await ctx.db
           .query("attempts")
           .withIndex("by_evaluation", (q) => q.eq("evaluationId", e._id))
           .collect();
-        const finished = attempts.filter((a) => a.finishedAt !== undefined && a.percent !== undefined);
-        const byStudent = new Map(finished.map((a) => [a.studentId, a]));
-        const average =
-          finished.length === 0
-            ? null
-            : Math.round(finished.reduce((s, a) => s + (a.percent ?? 0), 0) / finished.length);
+        const byStudent = groupByStudent(attempts);
+        const bests = new Map<string, Best>();
+        for (const s of students) {
+          const best = bestOf(await finishedAttempts(ctx, byStudent.get(s._id) ?? []));
+          if (best) bests.set(s._id, best);
+        }
+        const all = [...bests.values()];
+        const avg = (pick: (b: Best) => number) => {
+          const value = average(all.map(pick));
+          return value === null ? null : round1(value);
+        };
         return {
           evaluationId: e._id,
           title: e.title,
           date: e.scheduledDate,
-          average,
-          finishedCount: finished.length,
-          byStudent,
+          stars,
+          finishedCount: all.length,
+          average: avg((b) => b.attempt.percent) === null ? null : Math.round(avg((b) => b.attempt.percent)!),
+          averageRunsPerStar: avg((b) => b.attempt.runs / stars),
+          averageMs: avg((b) => b.attempt.totalMs),
+          averageTries: avg((b) => b.tries),
+          bests,
         };
       }),
     );
 
     return {
       classroomLabel: classroomLabel(classroom),
-      evaluations: points.map(({ byStudent: _omit, ...p }) => p),
+      evaluations: points.map(({ bests: _omit, ...p }) => p),
       students: students
         .map((s) => ({
           studentId: s._id,
           displayName: s.displayName,
           series: points.map((p) => {
-            const a = p.byStudent.get(s._id);
-            return { evaluationId: p.evaluationId, percent: a?.percent ?? null, totalMs: a?.totalMs ?? null };
+            const best = p.bests.get(s._id);
+            return {
+              evaluationId: p.evaluationId,
+              percent: best?.attempt.percent ?? null,
+              totalMs: best?.attempt.totalMs ?? null,
+              runsPerStar: best ? round1(best.attempt.runs / p.stars) : null,
+              tries: best?.tries ?? null,
+            };
           }),
         }))
         .sort((a, b) => a.displayName.localeCompare(b.displayName, "es")),

@@ -1,10 +1,11 @@
 /**
  * Portal del alumno: entra con su código, juega y responde.
  *
- * El servidor es la autoridad del intento: vuelve a simular el programa del
- * alumno para confirmar que llegó a la estrella, recién entonces revela la
- * pregunta (sin la respuesta correcta) y calcula la nota con sus propios
- * tiempos.
+ * El servidor es la autoridad del intento: simula cada programa que el
+ * alumno ejecuta (y lo anota), revela la pregunta solo cuando el robot llega
+ * a la estrella (sin la respuesta correcta) y calcula la nota con sus propios
+ * tiempos. El alumno puede volver a rendir la evaluación; cada vez es un
+ * intento nuevo y todos quedan registrados.
  */
 import { ConvexError, v } from "convex/values";
 import {
@@ -19,9 +20,14 @@ import { ProgramError, compile, countBlocks, parseProgram, usesOnly } from "../s
 import { simulate } from "../src/domain/game/simulator";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, mutation, query } from "./_generated/server";
+import { attemptNumber, attemptsOf, runsOf } from "./lib/attempts";
 import { classroomLabel, requireStudent } from "./lib/access";
 
 const SESSION_MS = 8 * 60 * 60 * 1000; // una jornada escolar
+/** Tope de veces que se puede rendir una misma evaluación. */
+export const MAX_TRIES = 20;
+/** Tope de ejecuciones por estrella: evita llenar la base con clics repetidos. */
+export const MAX_RUNS_PER_STAGE = 100;
 
 async function questionsOf(ctx: QueryCtx, evaluationId: Id<"evaluations">) {
   return await ctx.db
@@ -30,18 +36,20 @@ async function questionsOf(ctx: QueryCtx, evaluationId: Id<"evaluations">) {
     .collect();
 }
 
-async function attemptOf(ctx: QueryCtx, studentId: Id<"students">, evaluationId: Id<"evaluations">) {
-  return await ctx.db
-    .query("attempts")
-    .withIndex("by_student_evaluation", (q) => q.eq("studentId", studentId).eq("evaluationId", evaluationId))
-    .unique();
-}
-
 async function requireOwnAttempt(ctx: QueryCtx, token: string, attemptId: Id<"attempts">) {
   const { student, classroom } = await requireStudent(ctx, token);
   const attempt = await ctx.db.get(attemptId);
   if (!attempt || attempt.studentId !== student._id) throw new ConvexError("No encontramos tu evaluación.");
   return { student, classroom, attempt };
+}
+
+async function requireOwnEvaluation(ctx: QueryCtx, token: string, evaluationId: Id<"evaluations">) {
+  const { student, classroom } = await requireStudent(ctx, token);
+  const evaluation = await ctx.db.get(evaluationId);
+  if (!evaluation || evaluation.classroomId !== classroom._id) {
+    throw new ConvexError("Esa evaluación no es de tu clase.");
+  }
+  return { student, evaluation };
 }
 
 /** Cantidad de bloques del programa: dato informativo, nunca invalida la respuesta. */
@@ -100,15 +108,17 @@ export const home = query({
 
     const items = await Promise.all(
       evaluations.map(async (e) => {
-        const attempt = await attemptOf(ctx, student._id, e._id);
+        const attempts = await attemptsOf(ctx, student._id, e._id);
+        const latest = attempts.at(-1);
         const questions = await questionsOf(ctx, e._id);
         return {
           evaluationId: e._id,
           title: e.title,
           questionCount: questions.length,
-          attemptId: attempt?._id ?? null,
-          stage: attempt?.stage ?? 0,
-          finished: attempt?.finishedAt !== undefined,
+          attemptId: latest?._id ?? null,
+          stage: latest?.stage ?? 0,
+          finished: latest?.finishedAt !== undefined,
+          tries: attempts.filter((a) => a.finishedAt !== undefined).length,
           createdAt: e.createdAt,
         };
       }),
@@ -126,19 +136,37 @@ export const home = query({
   },
 });
 
+/** Primera vez: crea el intento. Si ya hay uno, lo retoma. */
 export const start = mutation({
   args: { token: v.string(), evaluationId: v.id("evaluations") },
   handler: async (ctx, { token, evaluationId }) => {
-    const { student, classroom } = await requireStudent(ctx, token);
-    const evaluation = await ctx.db.get(evaluationId);
-    if (!evaluation || evaluation.classroomId !== classroom._id) {
-      throw new ConvexError("Esa evaluación no es de tu clase.");
-    }
-    const existing = await attemptOf(ctx, student._id, evaluationId);
-    if (existing) return existing._id;
+    const { student } = await requireOwnEvaluation(ctx, token, evaluationId);
+    const latest = (await attemptsOf(ctx, student._id, evaluationId)).at(-1);
+    if (latest) return latest._id;
     return await ctx.db.insert("attempts", {
       evaluationId,
       studentId: student._id,
+      number: 1,
+      startedAt: Date.now(),
+      stage: 0,
+    });
+  },
+});
+
+/** "Intentar de nuevo": un intento nuevo, después de terminar el anterior. */
+export const retry = mutation({
+  args: { token: v.string(), evaluationId: v.id("evaluations") },
+  handler: async (ctx, { token, evaluationId }) => {
+    const { student } = await requireOwnEvaluation(ctx, token, evaluationId);
+    const attempts = await attemptsOf(ctx, student._id, evaluationId);
+    const latest = attempts.at(-1);
+    if (!latest) throw new ConvexError("Primero empieza la evaluación.");
+    if (latest.finishedAt === undefined) return latest._id; // ya está jugando otra vez
+    if (attempts.length >= MAX_TRIES) throw new ConvexError("Ya jugaste muchas veces esta evaluación. ¡Buen trabajo!");
+    return await ctx.db.insert("attempts", {
+      evaluationId,
+      studentId: student._id,
+      number: attemptNumber(latest) + 1,
       startedAt: Date.now(),
       stage: 0,
     });
@@ -154,8 +182,10 @@ export const attempt = query({
     const questions = await questionsOf(ctx, attempt.evaluationId);
     const pending = attempt.questionShownAt !== undefined ? questions[attempt.stage] : undefined;
     return {
+      evaluationId: attempt.evaluationId,
       title: evaluation?.title ?? "",
       level: classroom.level,
+      number: attemptNumber(attempt),
       stage: attempt.stage,
       questionCount: questions.length,
       finished: attempt.finishedAt !== undefined,
@@ -165,10 +195,11 @@ export const attempt = query({
 });
 
 /**
- * El alumno dice que su programa llegó a la estrella. El servidor lo verifica
- * con el mismo simulador y, si es cierto, desbloquea la pregunta de la etapa.
+ * El alumno tocó "Ejecutar". El servidor simula el mismo programa, anota la
+ * ejecución (llegue o no) y, si el robot llegó a la estrella, desbloquea la
+ * pregunta de la etapa.
  */
-export const reachObjective = mutation({
+export const submitRun = mutation({
   args: { token: v.string(), attemptId: v.id("attempts"), program: v.any() },
   handler: async (ctx, { token, attemptId, program }) => {
     const { classroom, attempt } = await requireOwnAttempt(ctx, token, attemptId);
@@ -176,22 +207,40 @@ export const reachObjective = mutation({
     const questions = await questionsOf(ctx, attempt.evaluationId);
     const question = questions[attempt.stage];
     if (!question) throw new ConvexError("No hay más preguntas.");
-
-    if (attempt.questionShownAt === undefined) {
-      const policy = policyFor(classroom.level);
-      let outcomeKind: string;
-      try {
-        const parsed = parseProgram(program);
-        if (!usesOnly(parsed, policy.palette)) throw new ConvexError("Usaste un bloque que no está disponible.");
-        outcomeKind = simulate(policy.mapFor(attempt.stage), compile(parsed)).outcome.kind;
-      } catch (error) {
-        if (error instanceof ProgramError) throw new ConvexError(error.message);
-        throw error;
-      }
-      if (outcomeKind !== "GOAL") throw new ConvexError("El robot todavía no llega a la estrella.");
-      await ctx.db.patch(attempt._id, { questionShownAt: Date.now() });
+    // Si la pregunta ya estaba abierta (por ejemplo, recargó la página), no se cuenta otra ejecución.
+    if (attempt.questionShownAt !== undefined) {
+      return { outcome: "GOAL" as const, question: toPublicQuestion(question, attempt.stage) };
     }
-    return toPublicQuestion(question, attempt.stage);
+
+    const previous = await runsOf(ctx, attempt._id, attempt.stage);
+    if (previous.length >= MAX_RUNS_PER_STAGE) throw new ConvexError("Tómate un respiro y vuelve a intentarlo.");
+
+    const policy = policyFor(classroom.level);
+    let result: ReturnType<typeof simulate>;
+    let blocks: number;
+    try {
+      const parsed = parseProgram(program);
+      if (!usesOnly(parsed, policy.palette)) throw new ConvexError("Usaste un bloque que no está disponible.");
+      blocks = countBlocks(parsed);
+      result = simulate(policy.mapFor(attempt.stage), compile(parsed));
+    } catch (error) {
+      if (error instanceof ProgramError) throw new ConvexError(error.message);
+      throw error;
+    }
+
+    const now = Date.now();
+    const { outcome } = result;
+    await ctx.db.insert("runs", {
+      attemptId: attempt._id,
+      stage: attempt.stage,
+      outcome: outcome.kind,
+      ...(outcome.kind === "OFF_PATH" ? { failedStep: outcome.failedStep } : {}),
+      blocks,
+      createdAt: now,
+    });
+    if (outcome.kind !== "GOAL") return { outcome: outcome.kind, question: null };
+    await ctx.db.patch(attempt._id, { questionShownAt: now });
+    return { outcome: outcome.kind, question: toPublicQuestion(question, attempt.stage) };
   },
 });
 
@@ -201,7 +250,6 @@ export const answer = mutation({
     attemptId: v.id("attempts"),
     chosenOption: v.number(),
     program: v.any(),
-    runs: v.number(),
   },
   handler: async (ctx, args) => {
     const { attempt } = await requireOwnAttempt(ctx, args.token, args.attemptId);
@@ -219,7 +267,8 @@ export const answer = mutation({
       { questionId: question._id, correctOption: question.correctOption, points: question.points },
       { questionId: question._id, chosenOption: args.chosenOption, shownAt: attempt.questionShownAt, answeredAt: now },
     );
-    const blocksUsed = blocksIn(args.program);
+    // Las ejecuciones las cuenta el servidor; el navegador no puede cambiarlas.
+    const runs = Math.max(1, (await runsOf(ctx, attempt._id, attempt.stage)).length);
     await ctx.db.insert("answers", {
       attemptId: attempt._id,
       questionId: question._id,
@@ -229,8 +278,8 @@ export const answer = mutation({
       pointsAwarded: graded.pointsAwarded,
       shownAt: graded.shownAt,
       answeredAt: graded.answeredAt,
-      blocksUsed,
-      runs: Math.max(1, Math.floor(args.runs)),
+      blocksUsed: blocksIn(args.program),
+      runs,
     });
 
     const nextStage = attempt.stage + 1;
@@ -257,6 +306,7 @@ export const answer = mutation({
       maxScore: result.maxScore,
       percent: result.percent,
       totalMs: result.totalMs,
+      totalRuns: answers.reduce((sum, a) => sum + a.runs, 0),
     });
     return { isCorrect: graded.isCorrect, finished: true };
   },
@@ -273,13 +323,17 @@ export const result = query({
       .collect();
     answers.sort((a, b) => a.stage - b.stage);
     return {
+      evaluationId: attempt.evaluationId,
+      number: attemptNumber(attempt),
       score: attempt.score ?? 0,
       maxScore: attempt.maxScore ?? 0,
       percent: attempt.percent ?? 0,
       totalMs: attempt.totalMs ?? 0,
+      runs: attempt.totalRuns ?? answers.reduce((sum, a) => sum + a.runs, 0),
       answers: answers.map((a) => ({
         stage: a.stage,
         isCorrect: a.isCorrect,
+        runs: a.runs,
         responseMs: a.answeredAt - a.shownAt,
       })),
     };

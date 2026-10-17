@@ -9,8 +9,23 @@ import { Icon } from "../../../shared/ui/Icon";
 const STATUS = {
   pending: { text: "Sin empezar", className: "badge badge-muted" },
   in_progress: { text: "Jugando", className: "badge badge-warn" },
+  retrying: { text: "Reintentando", className: "badge badge-warn" },
   finished: { text: "Terminó", className: "badge badge-ok" },
 } as const;
+
+const MEDALS = ["🥇", "🥈", "🥉"];
+
+function Position({ value }: { value: number | null }) {
+  if (value === null) return <span className="muted">—</span>;
+  const medal = MEDALS[value - 1];
+  return medal ? (
+    <span className="medal" role="img" aria-label={`Puesto ${value}`}>
+      {medal}
+    </span>
+  ) : (
+    <span className="position">{value}</span>
+  );
+}
 
 const LETTERS = ["A", "B", "C", "D"];
 
@@ -20,8 +35,8 @@ export function EvaluationDetail() {
 
   if (detail === undefined) return <p className="muted">Cargando…</p>;
 
-  const finished = detail.results.filter((r) => r.status === "finished");
-  const playing = detail.results.some((r) => r.status === "in_progress");
+  const finished = detail.results.filter((r) => r.position !== null);
+  const playing = detail.results.some((r) => r.status === "in_progress" || r.status === "retrying");
   const average =
     finished.length === 0 ? null : Math.round(finished.reduce((s, r) => s + (r.percent ?? 0), 0) / finished.length);
   const isToday = detail.scheduledDate === localCalendarDate();
@@ -56,35 +71,47 @@ export function EvaluationDetail() {
         <div className="card stack-sm">
           <span className="muted small">Promedio de la clase</span>
           <strong style={{ fontSize: "1.6rem" }}>{average === null ? "—" : `${average} %`}</strong>
-          <span className="small muted">De quienes ya terminaron.</span>
+          <span className="small muted">Con el mejor intento de cada uno.</span>
         </div>
       </div>
 
       <section className="card stack">
         <div className="row spread">
           <h3 style={{ margin: 0 }}>Resultados</h3>
-          {playing ? <span className="live">En vivo</span> : <span className="small muted">Se actualiza solo.</span>}
+          {playing && <span className="live">En vivo</span>}
         </div>
+        <p className="small muted">
+          Orden: más puntaje; a igual puntaje, menos veces rendida, menos intentos de ejecutar y menos tiempo.
+        </p>
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
+                <th>Puesto</th>
                 <th>Alumno</th>
                 <th>Estado</th>
-                <th>Avance</th>
-                <th>Puntaje</th>
+                <th>Mejor puntaje</th>
+                <th title="Veces que rindió la evaluación hasta lograr su mejor puntaje">Veces</th>
+                <th title="Veces que tocó Ejecutar en ese intento">Intentos</th>
                 <th>Tiempo</th>
               </tr>
             </thead>
             <tbody>
               {detail.results.map((r) => (
                 <tr key={r.studentId}>
-                  <td>{r.displayName}</td>
                   <td>
-                    <span className={STATUS[r.status].className}>{STATUS[r.status].text}</span>
+                    <Position value={r.position} />
                   </td>
+                  <td>{r.displayName}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
-                    {Math.min(r.stage, detail.questionCount)} de {detail.questionCount}
+                    <span className={STATUS[r.status].className}>{STATUS[r.status].text}</span>
+                    {(r.status === "in_progress" || r.status === "retrying") && (
+                      <span className="small muted">
+                        {" "}
+                        {r.attemptNumber > 1 && `vez ${r.attemptNumber} · `}estrella {Math.min(r.stage + 1, detail.questionCount)} de{" "}
+                        {detail.questionCount}
+                      </span>
+                    )}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     {r.score === null ? "—" : (
@@ -93,6 +120,17 @@ export function EvaluationDetail() {
                       </>
                     )}
                   </td>
+                  <td>
+                    {r.tries === null ? (
+                      "—"
+                    ) : (
+                      <span title={r.totalTries > r.tries ? `La rindió ${r.totalTries} veces en total` : undefined}>
+                        {r.tries}
+                        {r.totalTries > r.tries && <span className="small muted"> ({r.totalTries})</span>}
+                      </span>
+                    )}
+                  </td>
+                  <td>{r.runs ?? "—"}</td>
                   <td style={{ whiteSpace: "nowrap" }}>{r.totalMs === null ? "—" : formatDuration(r.totalMs)}</td>
                 </tr>
               ))}

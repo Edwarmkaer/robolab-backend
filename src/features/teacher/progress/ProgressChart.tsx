@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { H, M, PLOT_H, PLOT_W, W, directLabels, yOf } from "./chartLayout";
+import { H, M, PLOT_H, PLOT_W, type Scale, W, directLabels } from "./chartLayout";
 
 export type ChartSeries = {
   readonly id: string;
@@ -17,12 +17,13 @@ type Props = {
   readonly xDetails: readonly string[];
   readonly series: readonly ChartSeries[];
   readonly title: string;
+  readonly scale: Scale;
+  /** Cómo se escribe un valor ("80%", "1,5", "2,3 min"). */
+  readonly format: (value: number) => string;
 };
 
-const Y_TICKS = [0, 25, 50, 75, 100];
-
 /** Tramos continuos: una evaluación no rendida corta la línea en vez de inventar un valor. */
-function segments(values: readonly (number | null)[], xOf: (i: number) => number): string[] {
+function segments(values: readonly (number | null)[], xOf: (i: number) => number, yOf: (v: number) => number): string[] {
   const paths: string[] = [];
   let current = "";
   values.forEach((v, i) => {
@@ -37,8 +38,9 @@ function segments(values: readonly (number | null)[], xOf: (i: number) => number
   return paths;
 }
 
-export function ProgressChart({ xLabels, xDetails, series, title }: Props) {
+export function ProgressChart({ xLabels, xDetails, series, title, scale, format }: Props) {
   const [hover, setHover] = useState<number | null>(null);
+  const { yOf } = scale;
   const n = xLabels.length;
   const xOf = (i: number) => (n === 1 ? M.left + PLOT_W / 2 : M.left + (i / (n - 1)) * PLOT_W);
   const step = n > 1 ? PLOT_W / (n - 1) : PLOT_W;
@@ -57,11 +59,11 @@ export function ProgressChart({ xLabels, xDetails, series, title }: Props) {
       </div>
       <div style={{ position: "relative" }}>
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={title} onMouseLeave={() => setHover(null)}>
-          {Y_TICKS.map((t) => (
+          {scale.ticks.map((t) => (
             <g key={t}>
               <line x1={M.left} x2={M.left + PLOT_W} y1={yOf(t)} y2={yOf(t)} stroke="var(--c-line)" strokeWidth="1" />
               <text x={M.left - 8} y={yOf(t)} textAnchor="end" dominantBaseline="middle" fontSize="11" fill="var(--c-muted)">
-                {t}%
+                {format(t)}
               </text>
             </g>
           ))}
@@ -76,7 +78,7 @@ export function ProgressChart({ xLabels, xDetails, series, title }: Props) {
           {/* En orden inverso: la primera serie (el alumno) queda encima si coincide con el promedio. */}
           {[...series].reverse().map((s) => (
             <g key={s.id}>
-              {segments(s.values, xOf).map((d, k) => (
+              {segments(s.values, xOf, yOf).map((d, k) => (
                 <path key={k} d={d} fill="none" stroke={s.color} strokeWidth="2" strokeDasharray={s.dashed ? "6 5" : undefined} strokeLinejoin="round" />
               ))}
               {s.values.map((v, i) =>
@@ -86,7 +88,7 @@ export function ProgressChart({ xLabels, xDetails, series, title }: Props) {
               )}
             </g>
           ))}
-          {directLabels(series, xOf).map((l) => (
+          {directLabels(series, xOf, yOf).map((l) => (
             // El borde del color de fondo despega la etiqueta de las líneas de la grilla.
             <text
               key={l.id}
@@ -139,7 +141,7 @@ export function ProgressChart({ xLabels, xDetails, series, title }: Props) {
                   <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 999, background: s.color }} />
                   {s.label}
                 </span>
-                <strong>{s.values[hover] === null ? "—" : `${s.values[hover]}%`}</strong>
+                <strong>{s.values[hover] == null ? "—" : format(s.values[hover]!)}</strong>
               </div>
             ))}
           </div>

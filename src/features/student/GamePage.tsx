@@ -31,10 +31,9 @@ function StageView({
 }) {
   const policy = policyFor(stage.level);
   const map = policy.mapFor(stage.stage);
-  const reachObjective = useMutation(api.student.reachObjective);
+  const submitRun = useMutation(api.student.submitRun);
   const answer = useMutation(api.student.answer);
   const [editor, dispatch] = useReducer(editorReducer, emptyEditor);
-  const [runs, setRuns] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [question, setQuestion] = useState<PublicQuestion | null>(pendingQuestion);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +43,10 @@ function StageView({
     const fb = feedbackFor(outcome);
     setFeedback(fb);
     speak(`${fb.title} ${fb.detail}`);
-    if (outcome.kind !== "GOAL") return;
+    // Toda ejecución se envía: el servidor la simula, la cuenta y, si llegó, abre la pregunta.
     try {
-      setQuestion(await reachObjective({ token, attemptId, program: editor.blocks }));
+      const run = await submitRun({ token, attemptId, program: editor.blocks });
+      if (run.question) setQuestion(run.question);
     } catch (e) {
       setError(userMessage(e));
     }
@@ -57,14 +57,13 @@ function StageView({
   function onRun() {
     setError(null);
     setFeedback(null);
-    setRuns((n) => n + 1);
     run(editor.blocks);
   }
 
   async function onAnswer(option: number) {
     setBusy(true);
     try {
-      await answer({ token, attemptId, chosenOption: option, program: editor.blocks, runs: Math.max(runs, 1) });
+      await answer({ token, attemptId, chosenOption: option, program: editor.blocks });
       // El servidor avanza la etapa; la consulta reactiva monta la siguiente.
     } catch (e) {
       setError(userMessage(e));
@@ -145,8 +144,8 @@ export function GamePage({ token }: { token: string }) {
         <ResultView token={token} attemptId={id} />
       ) : (
         <StageView
-          // Una etapa nueva monta un editor y un tablero nuevos.
-          key={attempt.stage}
+          // Una etapa (o un intento) nueva monta un editor y un tablero nuevos.
+          key={`${id}-${attempt.stage}`}
           token={token}
           attemptId={id}
           stage={{ level: attempt.level, stage: attempt.stage, questionCount: attempt.questionCount }}

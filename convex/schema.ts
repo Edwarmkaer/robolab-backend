@@ -59,6 +59,8 @@ export default defineSchema({
   attempts: defineTable({
     evaluationId: v.id("evaluations"),
     studentId: v.id("students"),
+    // Vez que rinde la evaluación (1, 2, 3…). Los intentos antiguos no lo tienen: son la 1.
+    number: v.optional(v.number()),
     startedAt: v.number(),
     stage: v.number(), // etapa actual del minijuego, 0-based
     questionShownAt: v.optional(v.number()), // pregunta de la etapa ya desbloqueada
@@ -67,6 +69,7 @@ export default defineSchema({
     maxScore: v.optional(v.number()),
     percent: v.optional(v.number()),
     totalMs: v.optional(v.number()),
+    totalRuns: v.optional(v.number()), // veces que tocó "Ejecutar" en todo el intento
   })
     .index("by_student_evaluation", ["studentId", "evaluationId"])
     .index("by_evaluation", ["evaluationId"]),
@@ -83,6 +86,16 @@ export default defineSchema({
     blocksUsed: v.number(),
     runs: v.number(),
   }).index("by_attempt", ["attemptId"]),
+
+  // Cada vez que el alumno toca "Ejecutar": el servidor lo simula y lo anota.
+  runs: defineTable({
+    attemptId: v.id("attempts"),
+    stage: v.number(),
+    outcome: v.union(v.literal("GOAL"), v.literal("OFF_PATH"), v.literal("INCOMPLETE"), v.literal("EMPTY")),
+    failedStep: v.optional(v.number()),
+    blocks: v.number(),
+    createdAt: v.number(),
+  }).index("by_attempt_stage", ["attemptId", "stage"]),
 
   // Registro de cada correo pedido: confirma si salió y sirve para frenar abusos.
   emailDeliveries: defineTable({
