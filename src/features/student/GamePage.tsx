@@ -8,6 +8,7 @@ import { type Feedback, feedbackFor } from "../../domain/game/feedback";
 import { type EducationLevel, policyFor } from "../../domain/game/levels";
 import type { Outcome } from "../../domain/game/simulator";
 import { userMessage } from "../../shared/errors";
+import { Guide } from "../../shared/ui/Guide";
 import { Icon } from "../../shared/ui/Icon";
 import { BlockEditor } from "../game/BlockEditor";
 import { Board } from "../game/Board";
@@ -82,11 +83,19 @@ function StageView({
     <div className="game">
       <div className="stack">
         <Board map={map} robot={runner.robot} mood={mood} stepMs={STEP_MS} />
-        {feedback && (
-          <p className="feedback" data-tone={feedback.tone} role="status">
-            {feedback.title} {feedback.detail}
-          </p>
-        )}
+        {/* Wayra acompaña, pero en una evaluación no da pistas: la nota es del alumno. */}
+        <Guide
+          mood={
+            !feedback
+              ? "idle"
+              : feedback.tone === "success"
+                ? "happy"
+                : runner.outcome?.kind === "OFF_PATH"
+                  ? "surprised"
+                  : "thinking"
+          }
+          message={feedback ? `${feedback.title} ${feedback.detail}` : "Arma el programa y lleva al robot a la estrella. ¡Tú puedes!"}
+        />
         {error && <p className="alert alert-error">{error}</p>}
       </div>
       <div className="stack">

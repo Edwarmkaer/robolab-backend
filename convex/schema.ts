@@ -97,6 +97,17 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_attempt_stage", ["attemptId", "stage"]),
 
+  // Modo abierto: una fila por reto jugado, con un id de dispositivo al azar (sin nombres).
+  explorePlays: defineTable({
+    deviceId: v.string(),
+    challengeId: v.string(),
+    solved: v.boolean(),
+    runs: v.number(),
+    hints: v.number(),
+    ms: v.number(),
+    createdAt: v.number(),
+  }).index("by_device_time", ["deviceId", "createdAt"]),
+
   // Registro de cada correo pedido: confirma si salió y sirve para frenar abusos.
   emailDeliveries: defineTable({
     to: v.string(),

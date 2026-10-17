@@ -1,15 +1,33 @@
-# Inrobit Aula
+# RoboLab
 
-Evaluaciones de Inicial que se rinden jugando. El docente arma la evaluación
-(preguntas, alternativas, respuesta correcta y puntaje); el alumno entra con un
-código, programa un robot con bloques y cada vez que el robot llega a una
-estrella se desbloquea una pregunta. Al final ve su puntaje y cuánto tardó.
-El docente sigue el avance de su clase en vivo y en una gráfica de progreso.
+Retos de programación con un robot, para Inicial y Primaria, en dos modos:
 
-Hecho para el track **Educación Escolar** de Hack the Andes 2026. Pensado para
-Inicial y listo para crecer a Primaria y Secundaria.
+- **Explorar retos (sin cuenta).** Cualquiera entra, elige un tópico y un
+  nivel y resuelve retos de pensamiento computacional: armar la secuencia,
+  esquivar obstáculos, predecir dónde termina el robot, corregir un programa
+  con error, pasar por paradas y resolver con pocos bloques. Wayra, la guía,
+  reacciona a cada intento y da hasta 3 pistas. El avance se guarda en el
+  dispositivo.
+- **Clases.** El docente arma evaluaciones (preguntas, alternativas, respuesta
+  correcta y puntaje); el alumno entra con un código, programa el robot y cada
+  vez que llega a una estrella se desbloquea una pregunta. El docente ve los
+  resultados en vivo, un ranking y el desarrollo del aprendizaje.
+
+Hecho para el track **Educación Escolar** de Hack the Andes 2026.
 
 ## Qué hace
+
+**Explorar retos**
+
+- Portada con los cinco tópicos STEAM; Tecnología ya tiene 11 retos (5 de
+  Inicial y 6 de Primaria) y los demás se muestran como "Próximamente".
+- Cada reto tiene una ficha (historia, tiempo, habilidad, vista previa del
+  tablero), el juego con Wayra y sus pistas, y "¡Reto logrado!" con intentos,
+  pistas y tiempo.
+- "Mi avance" muestra lo resuelto por tópico en ese dispositivo.
+- Cada partida resuelta se registra de forma anónima (un identificador al azar
+  del dispositivo, sin nombres) para medir el uso real; el servidor vuelve a
+  revisar si el reto se resolvió. `npx convex run explore:stats` da las cifras.
 
 **Docente**
 
@@ -74,6 +92,9 @@ flowchart LR
 - **Dominio puro y compartido** (`src/domain`). Las reglas del juego y de la
   calificación no dependen de React ni de Convex. El navegador las usa para
   animar al robot y el servidor las usa para validar: es el mismo código.
+- **Mismo motor en todo.** Los retos abiertos y las evaluaciones usan el mismo
+  intérprete y el mismo simulador (`src/domain/game`); los retos agregan su
+  revisión en `src/domain/explore` (paradas, límite de bloques, predicción).
 - **El servidor manda.** Cada vez que el alumno toca "Ejecutar", el servidor
   simula el mismo programa y lo anota (así los intentos son confiables); solo
   si llegó a la estrella muestra la pregunta.
@@ -176,4 +197,6 @@ datos y el flujo completo del alumno.
 ## Créditos
 
 Los gráficos del robot y de los bloques vienen del kit Inrobit que el equipo
-hizo en 2025. Todo el código de esta aplicación es nuevo.
+hizo en 2025. Wayra se dibuja con [blobatar](https://github.com/Alain00/blobatar)
+(MIT), en el navegador y sin conexión a terceros. Todo el código de esta
+aplicación es nuevo.

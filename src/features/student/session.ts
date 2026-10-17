@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
  * Token de sesión del alumno guardado en el navegador. Si el almacenamiento
  * no está disponible (modo privado estricto), la sesión vive solo en memoria.
  */
-const KEY = "inrobit.alumno.token";
+const KEY = "robolab.alumno.token";
 
 function read(): string | null {
   try {

@@ -13,11 +13,14 @@ type Props = {
   readonly disabled: boolean;
   /** Bloque que se ejecuta ahora o el que falló, para resaltarlo. */
   readonly active?: { path: BlockPath; tone: "active" | "error" } | null;
+  /** Solo muestra el programa (retos de predecir): sin paleta y sin quitar bloques. */
+  readonly readOnly?: boolean;
 };
 
 const samePath = (a: BlockPath, b: BlockPath) => a.length === b.length && a.every((v, i) => v === b[i]);
 
-export function BlockEditor({ policy, state, dispatch, disabled, active }: Props) {
+export function BlockEditor({ policy, state, dispatch, disabled: busy, active, readOnly = false }: Props) {
+  const disabled = busy || readOnly;
   const commands = COMMANDS.filter((c) => policy.palette.has(c));
   const toneOf = (path: BlockPath) => (active && samePath(active.path, path) ? active.tone : undefined);
   // Número de paso visible de cada bloque raíz (los bucles no cuentan como paso).
@@ -29,7 +32,7 @@ export function BlockEditor({ policy, state, dispatch, disabled, active }: Props
 
   return (
     <div className="stack">
-      <div className="palette" role="group" aria-label="Bloques disponibles">
+      <div className="palette" role="group" aria-label="Bloques disponibles" hidden={readOnly}>
         {commands.map((command) => (
           <button
             key={command}
@@ -58,7 +61,7 @@ export function BlockEditor({ policy, state, dispatch, disabled, active }: Props
         )}
       </div>
 
-      <div className="program" role="list" aria-label="Tu programa">
+      <div className="program" role="list" aria-label={readOnly ? "Programa de Kusi" : "Tu programa"} data-readonly={readOnly || undefined}>
         {state.blocks.length === 0 && <span className="muted">Toca los bloques para armar tu programa.</span>}
         {state.blocks.map((block, i) => {
           if (block.kind === "move") {
@@ -71,7 +74,7 @@ export function BlockEditor({ policy, state, dispatch, disabled, active }: Props
                 className="program-block"
                 data-state={toneOf([i])}
                 disabled={disabled}
-                aria-label={`Paso ${stepNumber}: ${BLOCK_LOOK[block.command].label}. Toca para quitar.`}
+                aria-label={`Paso ${stepNumber}: ${BLOCK_LOOK[block.command].label}.${readOnly ? "" : " Toca para quitar."}`}
                 onClick={() => dispatch({ type: "remove", path: [i] })}
               >
                 <span className="step-n">{stepNumber}</span>
@@ -105,14 +108,14 @@ export function BlockEditor({ policy, state, dispatch, disabled, active }: Props
                     className="program-block"
                     data-state={toneOf([i, j])}
                     disabled={disabled}
-                    aria-label={`${BLOCK_LOOK[child.command].label} dentro de repetir. Toca para quitar.`}
+                    aria-label={`${BLOCK_LOOK[child.command].label} dentro de repetir.${readOnly ? "" : " Toca para quitar."}`}
                     onClick={() => dispatch({ type: "remove", path: [i, j] })}
                   >
                     <img src={BLOCK_LOOK[child.command].icon} alt="" />
                   </button>
                 ) : null,
               )}
-              {open ? (
+              {readOnly ? null : open ? (
                 <button className="btn" type="button" disabled={disabled} onClick={() => dispatch({ type: "closeRepeat" })}>
                   Cerrar
                 </button>

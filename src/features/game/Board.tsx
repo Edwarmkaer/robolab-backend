@@ -1,4 +1,4 @@
-import type { GameMap } from "../../domain/game/map";
+import { type Cell, type GameMap, cellKey } from "../../domain/game/map";
 import type { RobotState } from "../../domain/game/simulator";
 
 type Props = {
@@ -6,6 +6,11 @@ type Props = {
   readonly robot: RobotState;
   readonly mood: "idle" | "error" | "success";
   readonly stepMs: number;
+  /** Retos de predecir: las casillas del camino se pueden tocar. */
+  readonly onPick?: (cell: Cell) => void;
+  readonly picked?: Cell | null;
+  /** Casilla correcta, cuando ya se reveló. */
+  readonly answer?: Cell | null;
 };
 
 const ROBOT_IMAGE = { idle: "/robot/robot.svg", error: "/robot/robot-error.svg", success: "/robot/robot-exito.svg" };
@@ -22,22 +27,69 @@ const along = (index: number, count: number) => {
   return { offset: `calc(${PADDING_PX}px + ${index} * (${size} + ${GAP_PX}px))`, size: `calc${size}` };
 };
 
-export function Board({ map, robot, mood, stepMs }: Props) {
+const KIND: Record<string, string> = { "#": "grass", W: "water" };
+
+export function Board({ map, robot, mood, stepMs, onPick, picked, answer }: Props) {
   const x = along(robot.cell.col, map.cols);
   const y = along(robot.cell.row, map.rows);
+  const isPicked = (cell: Cell) => picked != null && cellKey(picked) === cellKey(cell);
+  const isAnswer = (cell: Cell) => answer != null && cellKey(answer) === cellKey(cell);
+
   return (
     <div
       className="board"
-      style={{ gridTemplateColumns: `repeat(${map.cols}, 1fr)`, ["--step-ms" as string]: `${stepMs}ms` }}
-      role="img"
-      aria-label={`Mapa de ${map.rows} por ${map.cols}. El robot debe llegar a la estrella.`}
+      // Las casillas no pasan de ~140 px: un mapa chico no ocupa media pantalla.
+      style={{ gridTemplateColumns: `repeat(${map.cols}, 1fr)`, maxWidth: `min(100%, 72vh, ${map.cols * 140}px)`, ["--step-ms" as string]: `${stepMs}ms` }}
+      role={onPick ? "group" : "img"}
+      aria-label={
+        onPick
+          ? "Tablero: toca la casilla donde crees que termina Kusi."
+          : `Mapa de ${map.rows} por ${map.cols}. ${map.goal ? "Kusi debe llegar a la estrella." : ""}${map.stops.length ? ` Pasa por ${map.stops.length} banderas.` : ""}`
+      }
     >
       {map.layout.flatMap((line, row) =>
-        [...line].map((ch, col) => (
-          <div key={`${row}-${col}`} className="tile" data-walkable={ch !== "#"}>
-            {ch === "G" && <img className="star" src="/estrella.svg" alt="" />}
-          </div>
-        )),
+        [...line].map((ch, col) => {
+          const cell = { row, col };
+          const walkable = map.walkable.has(cellKey(cell));
+          const content = (
+            <>
+              {ch === "G" && <img className="star" src="/estrella.svg" alt="" />}
+              {ch === "P" && (
+                <span className="tile-mark" aria-hidden="true">
+                  🚩
+                </span>
+              )}
+              {ch === "W" && (
+                <span className="tile-mark" aria-hidden="true">
+                  💧
+                </span>
+              )}
+            </>
+          );
+          const common = {
+            className: "tile",
+            "data-walkable": walkable,
+            "data-kind": KIND[ch],
+            "data-picked": isPicked(cell) || undefined,
+            "data-answer": isAnswer(cell) || undefined,
+          };
+          return onPick && walkable ? (
+            <button
+              key={`${row}-${col}`}
+              type="button"
+              {...common}
+              onClick={() => onPick(cell)}
+              aria-label={`Fila ${row + 1}, columna ${col + 1}`}
+              aria-pressed={isPicked(cell)}
+            >
+              {content}
+            </button>
+          ) : (
+            <div key={`${row}-${col}`} {...common}>
+              {content}
+            </div>
+          );
+        }),
       )}
       <div
         className="robot"

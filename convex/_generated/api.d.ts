@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as classrooms from "../classrooms.js";
 import type * as demo from "../demo.js";
 import type * as evaluations from "../evaluations.js";
+import type * as explore from "../explore.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_attempts from "../lib/attempts.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   classrooms: typeof classrooms;
   demo: typeof demo;
   evaluations: typeof evaluations;
+  explore: typeof explore;
   http: typeof http;
   "lib/access": typeof lib_access;
   "lib/attempts": typeof lib_attempts;

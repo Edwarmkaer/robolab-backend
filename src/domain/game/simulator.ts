@@ -76,7 +76,7 @@ export function simulate(map: GameMap, commands: readonly Command[]): Simulation
     }
     state = next;
     steps.push({ index, command, state });
-    if (sameCell(state.cell, map.goal)) {
+    if (map.goal && sameCell(state.cell, map.goal)) {
       return { initial, steps, outcome: { kind: "GOAL", stepsUsed: index } };
     }
   }

@@ -71,6 +71,25 @@ describe("parseMap", () => {
     expect(() => parseMap("malo", layout, 90)).toThrowError(MapError);
     expect(() => parseMap("malo", layout, 90)).toThrowError(error);
   });
+
+  it("el agua no se pisa y las paradas sí, y quedan anotadas", () => {
+    const map = parseMap("charco", ["S.P", ".WG"], 90);
+    expect(map.stops).toEqual([{ row: 0, col: 2 }]);
+    expect(simulate(map, ["TURN_RIGHT", "FORWARD", "TURN_LEFT", "FORWARD"]).outcome).toMatchObject({
+      kind: "OFF_PATH",
+      failedStep: 4,
+    });
+    expect(simulate(map, ["FORWARD", "FORWARD", "TURN_RIGHT", "FORWARD"]).outcome.kind).toBe("GOAL");
+  });
+
+  it("un mapa sin meta solo se acepta si se pide; el robot nunca termina antes", () => {
+    expect(() => parseMap("libre", ["S..", "..."], 90)).toThrowError(/falta la meta/);
+    const free = parseMap("libre", ["S..", "..."], 90, { goalOptional: true });
+    expect(free.goal).toBeNull();
+    const run = simulate(free, ["FORWARD", "FORWARD", "TURN_RIGHT", "FORWARD"]);
+    expect(run.outcome.kind).toBe("INCOMPLETE");
+    expect(run.steps.at(-1)?.state.cell).toEqual({ row: 1, col: 2 });
+  });
 });
 
 /** Búsqueda en anchura sobre (celda, orientación): el camino más corto. */

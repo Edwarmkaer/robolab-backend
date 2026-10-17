@@ -1,40 +1,75 @@
 import { Link } from "react-router-dom";
-import { APP_NAME } from "../../shared/brand";
+import { TOPICS } from "../../domain/explore/challenges";
 import { Icon } from "../../shared/ui/Icon";
+import { ExploreLayout, TOPIC_COLOR } from "../explore/ExploreLayout";
 
-/** Portada: aquí se elige el rol, también al cerrar sesión. */
+/** Portada: retos sin registrarse, y la entrada de alumnos con código y de docentes. */
 export function Landing() {
   return (
-    <main className="hero">
-      <div className="hero-inner">
-        <div className="robot-badge">
-          <img src="/robot/robot.svg" alt="" />
+    <ExploreLayout>
+      <section className="stack" aria-labelledby="hero-title">
+        <div>
+          <h1 id="hero-title" className="hero-title">
+            Resuelve retos STEAM
+          </h1>
+          <p className="muted">Ciencia, tecnología, ingeniería, artes y matemáticas. Sin registrarte: elige un tópico y empieza.</p>
         </div>
-        <h1>{APP_NAME}</h1>
-        <p className="muted">
-          Evaluaciones que se juegan: los niños programan un robot con bloques y cada estrella que alcanzan
-          abre una pregunta. El docente ve cómo avanza su clase.
-        </p>
-        <h2 className="choices-title">¿Quién eres?</h2>
-        <div className="choices">
-          <Link className="choice" to="/alumno">
-            <img className="choice-img" src="/roles/alumno.svg" alt="" />
-            <strong>Soy alumno</strong>
-            <span className="muted">Entra con el código que te dio tu profesora o profesor.</span>
-            <span className="choice-go" aria-hidden="true">
-              <Icon name="chevronRight" />
-            </span>
-          </Link>
-          <Link className="choice" to="/docente">
-            <img className="choice-img" src="/roles/docente.svg" alt="" />
-            <strong>Soy docente</strong>
-            <span className="muted">Crea evaluaciones y mira el avance de tus clases.</span>
-            <span className="choice-go" aria-hidden="true">
-              <Icon name="chevronRight" />
-            </span>
-          </Link>
+        <div className="topic-grid">
+          {TOPICS.map((t) =>
+            t.available ? (
+              <Link
+                key={t.id}
+                className="topic-card"
+                to={`/explorar/${t.id}`}
+                style={{ ["--topic" as string]: TOPIC_COLOR[t.id] }}
+              >
+                <span className="topic-emoji" aria-hidden="true">
+                  {t.emoji}
+                </span>
+                <strong>{t.name}</strong>
+                <span className="small muted">{t.tagline}</span>
+              </Link>
+            ) : (
+              <div
+                key={t.id}
+                className="topic-card"
+                aria-disabled="true"
+                style={{ ["--topic" as string]: TOPIC_COLOR[t.id] }}
+              >
+                <span className="topic-emoji" aria-hidden="true">
+                  {t.emoji}
+                </span>
+                <strong>{t.name}</strong>
+                <span className="small muted">{t.tagline}</span>
+                <span className="badge badge-muted">Próximamente</span>
+              </div>
+            ),
+          )}
         </div>
-      </div>
-    </main>
+      </section>
+
+      <section className="role-grid" aria-label="Entrar con una clase">
+        <Link className="role-card" to="/alumno">
+          <img src="/roles/alumno.svg" alt="" />
+          <span className="stack-sm">
+            <strong>¿Tu docente te dio un código?</strong>
+            <span className="small muted">Entra a tu clase con tu código. No necesitas cuenta.</span>
+            <span className="btn btn-primary btn-sm">
+              Unirme a una clase <Icon name="chevronRight" size={18} />
+            </span>
+          </span>
+        </Link>
+        <Link className="role-card" to="/docente">
+          <img src="/roles/docente.svg" alt="" />
+          <span className="stack-sm">
+            <strong>¿Eres docente?</strong>
+            <span className="small muted">Crea evaluaciones para tu clase y sigue cómo aprende cada alumno.</span>
+            <span className="btn btn-sm">
+              Iniciar sesión <Icon name="chevronRight" size={18} />
+            </span>
+          </span>
+        </Link>
+      </section>
+    </ExploreLayout>
   );
 }
