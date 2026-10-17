@@ -665,6 +665,34 @@ textarea.input {
 }
 
 /* ---------- Avisos ---------- */
+.connection-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--c-warn-soft);
+  color: var(--c-warn);
+  border: 1px solid #f0c48f;
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow-lg);
+  animation: toast-in 200ms var(--ease);
+}
+
+.connection-banner[data-kind="unreachable"] {
+  background: var(--c-error-soft);
+  color: var(--c-error);
+  border-color: #f0b4ad;
+}
+
 .toasts {
   position: fixed;
   left: 50%;
