@@ -11,9 +11,12 @@
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as classrooms from "../classrooms.js";
+import type * as demo from "../demo.js";
 import type * as evaluations from "../evaluations.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_codes from "../lib/codes.js";
+import type * as lib_demoData from "../lib/demoData.js";
 import type * as lib_rules from "../lib/rules.js";
 import type * as student from "../student.js";
 
@@ -27,9 +30,12 @@ declare const fullApi: ApiFromModules<{
   analytics: typeof analytics;
   auth: typeof auth;
   classrooms: typeof classrooms;
+  demo: typeof demo;
   evaluations: typeof evaluations;
   http: typeof http;
   "lib/access": typeof lib_access;
+  "lib/codes": typeof lib_codes;
+  "lib/demoData": typeof lib_demoData;
   "lib/rules": typeof lib_rules;
   student: typeof student;
 }>;

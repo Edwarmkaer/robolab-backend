@@ -6,7 +6,7 @@ import {
   isValidAccessCode,
   normalizeAccessCode,
 } from "./accessCode";
-import { isCalendarDate, localCalendarDate, shortLabel } from "./calendar";
+import { addDays, isCalendarDate, localCalendarDate, shortLabel } from "./calendar";
 import { ScoringError, formatDuration, gradeAnswer, gradeEvaluation } from "./scoring";
 
 describe("gradeEvaluation", () => {
@@ -106,5 +106,12 @@ describe("calendario", () => {
 
   it("etiqueta corta para gráficos", () => {
     expect(shortLabel("2026-10-17")).toBe("17 oct");
+  });
+
+  it("suma y resta días cruzando meses y años", () => {
+    expect(addDays("2026-10-17", -21)).toBe("2026-09-26");
+    expect(addDays("2026-12-30", 3)).toBe("2027-01-02");
+    expect(addDays("2028-03-01", -1)).toBe("2028-02-29");
+    expect(() => addDays("2026-02-30", 1)).toThrow();
   });
 });

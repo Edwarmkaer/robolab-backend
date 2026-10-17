@@ -26,6 +26,16 @@ export function localCalendarDate(instant: Date = new Date()): CalendarDate {
   return `${y}-${m}-${d}`;
 }
 
+/** La misma fecha `days` días después (o antes, si es negativo). */
+export function addDays(date: CalendarDate, days: number): CalendarDate {
+  if (!isCalendarDate(date)) throw new RangeError(`Fecha no válida: ${date}`);
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
+  const shifted = new Date(Date.UTC(y, m - 1, d + days));
+  const mm = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${shifted.getUTCFullYear()}-${mm}-${dd}`;
+}
+
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
 /** "17 oct" para ejes de gráficos y listas. */
