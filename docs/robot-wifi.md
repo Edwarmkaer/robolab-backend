@@ -48,7 +48,10 @@ Dirección base: la de las rutas HTTP del despliegue, `https://<despliegue>.conv
 `conectado` es `true` si el robot consultó en los últimos 10 s. La web consulta
 el estado cada ~500 ms después de enviar (no hay WebSocket: el relé no reenvía,
 se consulta). El adaptador listo para la interfaz `RobotLink` del contrato
-(§6) está en `src/features/robot/wifiLink.ts`; no depende de React ni de Convex:
+(§6) está en `src/features/robot/wifiLink.ts`: es un solo archivo sin imports,
+así que otra web lo copia tal cual. El relé normaliza el código y valida las
+letras; el adaptador avisa `received` y `running` aunque una consulta se salte
+un paso (el robot responde `OK` y `RUN` casi juntos):
 
 ```ts
 import { createWifiLink } from "./wifiLink";
@@ -100,6 +103,12 @@ consulta cada 500 ms, valida las letras (`ERR:BAD_CHAR`, `ERR:TOO_LONG`) y
 responde `OK` → `RUN` → `DONE`. Con `PEDIR_ARRAY = true` pide el programa como
 arreglo. Solo falta completar `avanzar()`, `retroceder()`, `girarIzquierda()` (D)
 y `girarDerecha()` (Z). **No está compilado ni probado en una placa.**
+
+El wifi, el servidor y la clave van en `secretos.h`: copiar
+`secretos.ejemplo.h` con ese nombre en la misma carpeta y llenarlo. `secretos.h`
+no se sube al repo (está en `.gitignore`); sin él, el sketch compila con los
+valores de ejemplo. Para probar contra el backend local de una PC, el servidor
+es `http://<IP de la PC en ese wifi>:3211`, con PC y robot en el mismo wifi.
 
 ### Placa ESP32
 

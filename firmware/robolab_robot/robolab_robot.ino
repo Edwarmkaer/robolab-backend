@@ -17,12 +17,19 @@
 #include <WiFiClientSecure.h>
 
 // ---- Configuración ----
-const char* WIFI_NOMBRE = "NOMBRE_DEL_WIFI";
-const char* WIFI_CLAVE = "CLAVE_DEL_WIFI";
-// En la nube: "https://<despliegue>.convex.site".
-// En pruebas locales: "http://<IP de la PC>:3211" (PC y robot en el mismo wifi).
-const char* SERVIDOR = "https://DESPLIEGUE.convex.site";
-const char* ROBOT_CLAVE = "CLAVE";  // la da robot:register; solo va aquí, no la publiques
+// El wifi, el servidor y la clave del robot van en secretos.h (copia de
+// secretos.ejemplo.h), que no se sube al repo. Sin ese archivo compila igual,
+// con los valores de ejemplo.
+#if __has_include("secretos.h")
+#include "secretos.h"
+#else
+#include "secretos.ejemplo.h"
+#endif
+
+const char* WIFI_NOMBRE = SECRETO_WIFI_NOMBRE;
+const char* WIFI_CLAVE = SECRETO_WIFI_CLAVE;
+const char* SERVIDOR = SECRETO_SERVIDOR;
+const char* ROBOT_CLAVE = SECRETO_ROBOT_CLAVE;
 
 const bool PEDIR_ARRAY = false;  // true: el programa llega como ["A","A","D"]
 const unsigned long ESPERA_MS = 500;

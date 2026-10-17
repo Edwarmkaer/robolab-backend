@@ -7,3 +7,4 @@ dist/
 coverage/
 .convex/
 .claude/
+firmware/**/secretos.h
