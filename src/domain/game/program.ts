@@ -74,6 +74,27 @@ export function compile(program: Program): Command[] {
   return out;
 }
 
+/** Ruta de un bloque dentro del programa: [índice raíz, índice en el bucle, …]. */
+export type BlockPath = readonly number[];
+
+/**
+ * Como `compile`, pero recuerda de qué bloque salió cada comando. Sirve para
+ * resaltar el bloque que se está ejecutando o el que provocó el error.
+ */
+export function compileWithSource(program: Program): { command: Command; source: BlockPath }[] {
+  const commands = compile(program); // valida límites y bloques con las mismas reglas
+  const sources: BlockPath[] = [];
+  const visit = (blocks: readonly Block[], prefix: BlockPath): void => {
+    blocks.forEach((block, i) => {
+      const path = [...prefix, i];
+      if (block.kind === "move") sources.push(path);
+      else for (let r = 0; r < block.times; r++) visit(block.body, path);
+    });
+  };
+  visit(program, []);
+  return commands.map((command, i) => ({ command, source: sources[i] ?? [] }));
+}
+
 /** Máximo de bloques que puede colocar el alumno (no de pasos expandidos). */
 export const MAX_BLOCKS = 60;
 

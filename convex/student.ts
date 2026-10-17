@@ -44,6 +44,15 @@ async function requireOwnAttempt(ctx: QueryCtx, token: string, attemptId: Id<"at
   return { student, classroom, attempt };
 }
 
+/** Cantidad de bloques del programa: dato informativo, nunca invalida la respuesta. */
+function blocksIn(program: unknown): number {
+  try {
+    return countBlocks(parseProgram(program));
+  } catch {
+    return 0;
+  }
+}
+
 const toPublicQuestion = (q: Doc<"questions">, stage: number) => ({
   stage,
   prompt: q.prompt,
@@ -210,12 +219,7 @@ export const answer = mutation({
       { questionId: question._id, correctOption: question.correctOption, points: question.points },
       { questionId: question._id, chosenOption: args.chosenOption, shownAt: attempt.questionShownAt, answeredAt: now },
     );
-    let blocksUsed = 0;
-    try {
-      blocksUsed = countBlocks(parseProgram(args.program));
-    } catch {
-      blocksUsed = 0; // dato informativo: no invalida la respuesta
-    }
+    const blocksUsed = blocksIn(args.program);
     await ctx.db.insert("answers", {
       attemptId: attempt._id,
       questionId: question._id,
