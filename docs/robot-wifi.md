@@ -101,6 +101,20 @@ responde `OK` → `RUN` → `DONE`. Con `PEDIR_ARRAY = true` pide el programa co
 arreglo. Solo falta completar `avanzar()`, `retroceder()`, `girarIzquierda()` (D)
 y `girarDerecha()` (Z). **No está compilado ni probado en una placa.**
 
+### Placa ESP32
+
+- **Arduino IDE:** instalar "esp32 by Espressif Systems" en el Gestor de placas
+  y elegir la placa del robot (por ejemplo, "ESP32 Dev Module"). Las librerías
+  `WiFi`, `HTTPClient` y `WiFiClientSecure` vienen incluidas.
+- **Wifi de 2.4 GHz:** el ESP32 no se conecta a redes de 5 GHz ni a wifi con
+  página de inicio de sesión (como el de muchos eventos). Lo más seguro es el
+  punto de acceso de un celular en modo 2.4 GHz.
+- **Si ya usa Bluetooth (BLE):** wifi y BLE pueden convivir en el ESP32, pero
+  juntos con HTTPS ocupan mucha memoria. Si no compila o se reinicia, elegir en
+  Herramientas → Partition Scheme → "Huge APP (3MB No OTA)".
+- **Monitor serie** a 115200 baudios: ahí aparece el código del robot y cada
+  programa recibido.
+
 ## Entorno de pruebas y robot simulado
 
 Sin placa, el simulador hace de robot: muestra su código, recoge programas,
