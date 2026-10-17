@@ -58,8 +58,28 @@ describe("docente", () => {
     expect(classes).toMatchObject([{ label: "Inicial · 5 años · Sección A", studentCount: 2 }]);
 
     const today = await teacher.query(api.evaluations.listForDate, { date: TODAY });
-    expect(today).toMatchObject([{ title: "Animales y colores", questionCount: 2, maxScore: 5 }]);
+    expect(today).toMatchObject([{ title: "Animales y colores", questionCount: 2, maxScore: 5, studentCount: 2 }]);
     expect(await teacher.query(api.evaluations.listForDate, { date: "2026-10-18" })).toEqual([]);
+  });
+
+  it("limpia los nombres de los alumnos y rechaza caracteres extraños o repetidos", async () => {
+    const { teacher, classroomId } = await setup();
+    const [carla] = await teacher.mutation(api.classrooms.addStudents, { classroomId, names: ["  carla​  maría "] });
+    expect(carla!.displayName).toBe("Carla María");
+
+    await expect(
+      teacher.mutation(api.classrooms.addStudents, { classroomId, names: ["Diego", "<script>"] }),
+    ).rejects.toThrow(/Alumno 2 .*caracteres no permitidos: < >/);
+    await expect(teacher.mutation(api.classrooms.addStudents, { classroomId, names: ["ANA"] })).rejects.toThrow(
+      /Ya está en la clase/,
+    );
+    await expect(
+      teacher.mutation(api.classrooms.addStudents, { classroomId, names: ["Diego", "diego"] }),
+    ).rejects.toThrow(/repetido/);
+
+    // Nada se guarda si una línea falla.
+    const classroom = await teacher.query(api.classrooms.get, { classroomId });
+    expect(classroom.students.map((s) => s.displayName)).toEqual(["Ana", "Beto", "Carla María"]);
   });
 
   it("no puede ver ni usar clases o evaluaciones de otro docente", async () => {

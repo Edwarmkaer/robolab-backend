@@ -17,8 +17,14 @@ import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_codes from "../lib/codes.js";
 import type * as lib_demoData from "../lib/demoData.js";
+import type * as lib_env from "../lib/env.js";
+import type * as lib_mailPolicy from "../lib/mailPolicy.js";
+import type * as lib_mailer from "../lib/mailer.js";
 import type * as lib_rules from "../lib/rules.js";
+import type * as mail from "../mail.js";
+import type * as passwordReset from "../passwordReset.js";
 import type * as student from "../student.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -36,8 +42,14 @@ declare const fullApi: ApiFromModules<{
   "lib/access": typeof lib_access;
   "lib/codes": typeof lib_codes;
   "lib/demoData": typeof lib_demoData;
+  "lib/env": typeof lib_env;
+  "lib/mailPolicy": typeof lib_mailPolicy;
+  "lib/mailer": typeof lib_mailer;
   "lib/rules": typeof lib_rules;
+  mail: typeof mail;
+  passwordReset: typeof passwordReset;
   student: typeof student;
+  users: typeof users;
 }>;
 
 /**

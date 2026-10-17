@@ -4,6 +4,7 @@ import { mutation, query } from "./_generated/server";
 import { classroomLabel, requireOwnClassroom, requireTeacher } from "./lib/access";
 import { uniqueAccessCode } from "./lib/codes";
 import { LIMITS, cleanText } from "./lib/rules";
+import { parseStudentList } from "../src/domain/classroom/studentName";
 import { educationLevel } from "./schema";
 
 export const create = mutation({
@@ -82,14 +83,28 @@ export const addStudents = mutation({
   handler: async (ctx, { classroomId, names }) => {
     const teacherId = await requireTeacher(ctx);
     await requireOwnClassroom(ctx, teacherId, classroomId);
-    const clean = names.map((n) => n.trim()).filter((n) => n.length > 0);
-    if (clean.length === 0) throw new ConvexError("Escribe al menos un nombre.");
-    if (clean.length > LIMITS.studentsPerBatch) {
+    const existing = await ctx.db
+      .query("students")
+      .withIndex("by_classroom", (q) => q.eq("classroomId", classroomId))
+      .collect();
+
+    // Se valida toda la lista antes de guardar: si una línea falla, no se guarda ninguna.
+    const parsed = parseStudentList(
+      names.join("\n"),
+      existing.map((s) => s.displayName),
+    );
+    const problem = parsed.entries.findIndex((e) => e.status !== "ok");
+    const entry = parsed.entries[problem];
+    if (entry && entry.status !== "ok") {
+      throw new ConvexError(`Alumno ${problem + 1} («${entry.input}»): ${entry.reason}`);
+    }
+    if (parsed.names.length === 0) throw new ConvexError("Escribe al menos un nombre.");
+    if (parsed.names.length > LIMITS.studentsPerBatch) {
       throw new ConvexError(`Agrega hasta ${LIMITS.studentsPerBatch} alumnos a la vez.`);
     }
+
     const created: { displayName: string; accessCode: string }[] = [];
-    for (const raw of clean) {
-      const displayName = cleanText(raw, "Nombre", 2, LIMITS.nameMax);
+    for (const displayName of parsed.names) {
       const accessCode = await uniqueAccessCode(ctx);
       await ctx.db.insert("students", { classroomId, displayName, accessCode, createdAt: Date.now() });
       created.push({ displayName, accessCode });

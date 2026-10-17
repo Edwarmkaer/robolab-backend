@@ -2,6 +2,7 @@ import type { Dispatch } from "react";
 import type { EditorAction, EditorState } from "../../domain/game/editor";
 import { COMMANDS, type BlockPath, MAX_REPEAT, MIN_REPEAT } from "../../domain/game/program";
 import type { LevelPolicy } from "../../domain/game/levels";
+import { Icon } from "../../shared/ui/Icon";
 import { speak } from "../student/speech";
 import { BLOCK_LOOK, REPEAT_LOOK } from "./blocks";
 
@@ -80,7 +81,7 @@ export function BlockEditor({ policy, state, dispatch, disabled, active }: Props
           }
           const open = state.openRepeat === i;
           return (
-            <div key={i} role="listitem" className="card row" style={{ padding: 8, gap: 6, borderRadius: 14 }}>
+            <div key={i} role="listitem" className="repeat-block">
               <strong className="small">Repetir</strong>
               <select
                 className="select"
@@ -123,7 +124,7 @@ export function BlockEditor({ policy, state, dispatch, disabled, active }: Props
                   aria-label="Quitar repetir"
                   onClick={() => dispatch({ type: "remove", path: [i] })}
                 >
-                  ✕
+                  <Icon name="x" />
                 </button>
               )}
             </div>

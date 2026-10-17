@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { ACCESS_CODE_LENGTH, normalizeAccessCode } from "../../domain/evaluation/accessCode";
 import { userMessage } from "../../shared/errors";
+import { Icon } from "../../shared/ui/Icon";
 
 export function StudentLogin({ onSignedIn }: { onSignedIn: (token: string) => void }) {
   const signIn = useMutation(api.student.signIn);
@@ -29,7 +30,9 @@ export function StudentLogin({ onSignedIn }: { onSignedIn: (token: string) => vo
   return (
     <main className="hero kid">
       <form className="card stack" style={{ width: "min(480px, 100%)", textAlign: "center" }} onSubmit={onSubmit}>
-        <img src="/robot/robot.svg" alt="" style={{ width: 120, margin: "0 auto" }} />
+        <div className="robot-badge">
+          <img src="/robot/robot.svg" alt="" />
+        </div>
         <h1>¡Hola!</h1>
         <label htmlFor="code">Escribe tu código</label>
         <input
@@ -49,11 +52,11 @@ export function StudentLogin({ onSignedIn }: { onSignedIn: (token: string) => vo
             {error}
           </p>
         )}
-        <button className="btn btn-primary" type="submit" disabled={!ready || busy}>
+        <button className="btn btn-primary" type="submit" disabled={!ready || busy} aria-busy={busy}>
           {busy ? "Entrando…" : "Entrar"}
         </button>
-        <Link to="/" className="small">
-          Volver
+        <Link to="/" className="link-btn small" style={{ justifySelf: "center" }}>
+          <Icon name="arrowLeft" size={18} /> Volver
         </Link>
       </form>
     </main>

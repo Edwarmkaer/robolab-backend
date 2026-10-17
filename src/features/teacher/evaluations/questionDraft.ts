@@ -28,6 +28,8 @@ export const emptyQuestion = (): QuestionDraft => ({
 export type DraftAction =
   | { type: "add" }
   | { type: "remove"; key: string }
+  | { type: "restore"; question: QuestionDraft; index: number }
+  | { type: "move"; key: string; by: -1 | 1 }
   | { type: "prompt"; key: string; value: string }
   | { type: "option"; key: string; index: number; value: string }
   | { type: "addOption"; key: string }
@@ -44,6 +46,19 @@ export function draftsReducer(drafts: readonly QuestionDraft[], action: DraftAct
       return drafts.length >= MAX_QUESTIONS ? drafts : [...drafts, emptyQuestion()];
     case "remove":
       return drafts.length <= 1 ? drafts : drafts.filter((q) => q.key !== action.key);
+    case "restore": {
+      if (drafts.length >= MAX_QUESTIONS || drafts.some((q) => q.key === action.question.key)) return drafts;
+      const index = Math.min(Math.max(action.index, 0), drafts.length);
+      return [...drafts.slice(0, index), action.question, ...drafts.slice(index)];
+    }
+    case "move": {
+      const from = drafts.findIndex((q) => q.key === action.key);
+      const to = from + action.by;
+      if (from < 0 || to < 0 || to >= drafts.length) return drafts;
+      const next = [...drafts];
+      [next[from], next[to]] = [next[to]!, next[from]!];
+      return next;
+    }
     case "prompt":
       return update(drafts, action.key, (q) => ({ ...q, prompt: action.value }));
     case "option":
@@ -69,7 +84,7 @@ export function draftsReducer(drafts: readonly QuestionDraft[], action: DraftAct
     case "points":
       return update(drafts, action.key, (q) => ({
         ...q,
-        points: Number.isFinite(action.value) ? Math.round(action.value) : q.points,
+        points: Number.isFinite(action.value) ? Math.round(action.value) : Number.NaN,
       }));
   }
 }

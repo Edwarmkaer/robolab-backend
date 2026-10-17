@@ -8,6 +8,7 @@ import { type Feedback, feedbackFor } from "../../domain/game/feedback";
 import { type EducationLevel, policyFor } from "../../domain/game/levels";
 import type { Outcome } from "../../domain/game/simulator";
 import { userMessage } from "../../shared/errors";
+import { Icon } from "../../shared/ui/Icon";
 import { BlockEditor } from "../game/BlockEditor";
 import { Board } from "../game/Board";
 import { STEP_MS, useRunner } from "../game/useRunner";
@@ -99,7 +100,7 @@ function StageView({
             disabled={runner.running || editor.blocks.length === 0 || question !== null}
             onClick={onRun}
           >
-            ▶ Ejecutar
+            <Icon name="play" /> Ejecutar
           </button>
           <button
             className="btn"
@@ -111,7 +112,7 @@ function StageView({
               reset();
             }}
           >
-            Borrar
+            <Icon name="rotate" /> Borrar
           </button>
         </div>
       </div>

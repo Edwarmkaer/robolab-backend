@@ -5,6 +5,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { shortLabel } from "../../../domain/evaluation/calendar";
 import { formatDuration } from "../../../domain/evaluation/scoring";
+import { Icon } from "../../../shared/ui/Icon";
 import { type ChartSeries, ProgressChart } from "./ProgressChart";
 
 // Colores validados para daltonismo (azul y naranja), con línea punteada como segunda codificación.
@@ -18,9 +19,13 @@ function ClassProgress({ classroomId }: { classroomId: Id<"classrooms"> }) {
   if (progress === undefined) return <p className="muted">Cargando…</p>;
   if (progress.evaluations.length === 0) {
     return (
-      <p className="empty">
-        Esta clase todavía no tiene evaluaciones. <Link to="/docente/evaluaciones/nueva">Crea una</Link>.
-      </p>
+      <div className="empty">
+        <Icon name="chart" size={32} />
+        <p>Cuando esta clase rinda su primera evaluación, aquí verás cómo avanza.</p>
+        <Link className="btn btn-primary" to="/docente/evaluaciones/nueva">
+          <Icon name="plus" /> Crear evaluación
+        </Link>
+      </div>
     );
   }
 
@@ -47,8 +52,8 @@ function ClassProgress({ classroomId }: { classroomId: Id<"classrooms"> }) {
   return (
     <div className="stack">
       <section className="card stack">
-        <div className="row spread">
-          <h3>Desarrollo del aprendizaje</h3>
+        <div className="page-head">
+          <h3 style={{ margin: 0 }}>Desarrollo del aprendizaje</h3>
           <div className="field" style={{ minWidth: 220 }}>
             <label htmlFor="student">Comparar con</label>
             <select id="student" className="select" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
@@ -71,7 +76,8 @@ function ClassProgress({ classroomId }: { classroomId: Id<"classrooms"> }) {
       </section>
 
       <section className="card stack">
-        <h3>Detalle por alumno</h3>
+        <h3 style={{ margin: 0 }}>Detalle por alumno</h3>
+        <p className="small muted">Toca un nombre para verlo en la gráfica.</p>
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -131,16 +137,20 @@ export function ProgressPage() {
   if (classes === undefined) return <p className="muted">Cargando…</p>;
   if (classes.length === 0) {
     return (
-      <p className="empty">
-        Primero <Link to="/docente/clases">crea una clase</Link>.
-      </p>
+      <div className="empty">
+        <Icon name="users" size={32} />
+        <p>Primero crea una clase y agrega a tus alumnos.</p>
+        <Link className="btn btn-primary" to="/docente/clases">
+          <Icon name="plus" /> Crear clase
+        </Link>
+      </div>
     );
   }
   const selected = classroomId || classes[0]!._id;
 
   return (
     <div className="stack">
-      <div className="row spread">
+      <div className="page-head">
         <h2>Progreso</h2>
         <select className="select" style={{ maxWidth: 360 }} value={selected} onChange={(e) => setClassroomId(e.target.value)} aria-label="Clase">
           {classes.map((c) => (

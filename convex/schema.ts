@@ -83,4 +83,15 @@ export default defineSchema({
     blocksUsed: v.number(),
     runs: v.number(),
   }).index("by_attempt", ["attemptId"]),
+
+  // Registro de cada correo pedido: confirma si salió y sirve para frenar abusos.
+  emailDeliveries: defineTable({
+    to: v.string(),
+    kind: v.literal("password-reset"),
+    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("failed")),
+    provider: v.optional(v.string()),
+    providerMessageId: v.optional(v.string()),
+    requestedAt: v.number(),
+    settledAt: v.optional(v.number()),
+  }).index("by_to_requested", ["to", "requestedAt"]),
 });

@@ -13,12 +13,21 @@ Inicial y listo para crecer a Primaria y Secundaria.
 
 **Docente**
 
-- Se registra e inicia sesión con correo y contraseña.
+- Se registra e inicia sesión con correo y contraseña. La contraseña pide
+  minúscula, mayúscula, número, símbolo y 8 caracteres, y el formulario marca
+  cada regla mientras se escribe.
+- Si la olvida, recibe un código de 6 dígitos en su correo registrado (vence
+  en 15 minutos). La app solo dice "te enviamos un código" si el correo salió;
+  si no hay cuenta con ese correo o el envío falla, lo avisa.
 - Al entrar ve sus clases y las evaluaciones de hoy.
 - Crea clases (nivel, grado y sección) y agrega alumnos: cada uno recibe un
-  código de 6 caracteres que se puede imprimir.
+  código de 6 caracteres que se puede copiar o imprimir en tarjetas. Los
+  nombres se revisan antes de guardar: solo letras (con tildes, ñ, guion y
+  apóstrofo), sin números, símbolos, emojis ni caracteres invisibles pegados
+  desde otro programa, y sin repetidos.
 - Crea evaluaciones: título, clase, fecha y de 1 a 10 preguntas con 2 a 4
-  alternativas (admiten emojis), respuesta correcta y puntaje.
+  alternativas (admiten emojis), respuesta correcta y puntaje. Puede ordenar
+  las preguntas y deshacer una eliminación; cada error se marca en su campo.
 - Ve los resultados en vivo mientras los alumnos juegan.
 - Ve el desarrollo del aprendizaje: porcentaje de logro por evaluación, el
   promedio de la clase y la comparación con cada alumno, con tabla de detalle.
@@ -78,12 +87,13 @@ flowchart LR
 | Objeto de valor | `src/domain/evaluation/accessCode.ts` | Códigos sin letras confusas (sin O/0, I/1/L) |
 | Reductor | `src/domain/game/editor.ts`, `questionDraft.ts` | Editores con estado predecible y probado |
 | Guardas | `convex/lib/access.ts` | Autorización en un solo lugar |
+| Adaptador | `convex/lib/mailer.ts` | El proveedor de correo se cambia por configuración, sin tocar el flujo |
 | DTO | `convex/student.ts` | Lo que ve el alumno, sin datos sensibles |
 
 ### Carpetas
 
 ```
-src/domain/        reglas puras (juego y evaluación) con sus pruebas
+src/domain/        reglas puras (juego, evaluación, nombres y contraseña) con sus pruebas
 src/features/      pantallas: teacher/, student/, game/
 src/shared/        estilos, errores y componentes comunes
 convex/            esquema, funciones del backend y sus pruebas
@@ -103,7 +113,14 @@ npx convex dev
 `convex dev` crea el despliegue (local o en la nube), genera los tipos y deja
 la URL en `.env.local`. La primera vez hay que configurar las claves de
 inicio de sesión del docente (`JWT_PRIVATE_KEY`, `JWKS` y `SITE_URL`) siguiendo
-la guía de Convex Auth. En otra terminal:
+la guía de Convex Auth. Para el correo de recuperación:
+
+- En desarrollo: `npx convex env set MAIL_PROVIDER console`. El correo queda
+  en los registros (`npx convex logs`) en lugar de enviarse.
+- Para enviar de verdad: `MAIL_PROVIDER=resend`, `RESEND_API_KEY` y
+  `MAIL_FROM` en las variables del despliegue (nunca en el código).
+
+En otra terminal:
 
 ```bash
 npm run dev

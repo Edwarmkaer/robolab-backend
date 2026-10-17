@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Icon } from "../../shared/ui/Icon";
 import { canSpeak, speak, stopSpeaking } from "./speech";
 
 export type PublicQuestion = {
@@ -35,7 +36,7 @@ export function QuestionDialog({ question, busy, onAnswer }: Props) {
           <span className="badge">Pregunta {question.stage + 1}</span>
           {canSpeak() && (
             <button className="btn" type="button" onClick={() => readAloud(question)} aria-label="Escuchar otra vez">
-              🔊 Escuchar
+              <Icon name="volume" /> Escuchar
             </button>
           )}
         </div>
@@ -50,9 +51,13 @@ export function QuestionDialog({ question, busy, onAnswer }: Props) {
               className="option"
               type="button"
               disabled={busy}
+              aria-label={`${LETTERS[i]}. ${option}`}
               onClick={() => onAnswer(i)}
             >
-              {LETTERS[i]}. {option}
+              <span className="option-letter" aria-hidden="true">
+                {LETTERS[i]}
+              </span>
+              <span>{option}</span>
             </button>
           ))}
         </div>

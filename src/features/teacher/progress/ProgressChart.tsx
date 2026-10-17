@@ -87,7 +87,19 @@ export function ProgressChart({ xLabels, xDetails, series, title }: Props) {
             </g>
           ))}
           {directLabels(series, xOf).map((l) => (
-            <text key={l.id} x={l.x} y={l.y} dominantBaseline="middle" fontSize="12" fontWeight="700" fill="var(--c-ink)">
+            // El borde del color de fondo despega la etiqueta de las líneas de la grilla.
+            <text
+              key={l.id}
+              x={l.x}
+              y={l.y}
+              dominantBaseline="middle"
+              fontSize="12"
+              fontWeight="700"
+              fill="var(--c-ink)"
+              stroke="var(--c-surface)"
+              strokeWidth="4"
+              paintOrder="stroke"
+            >
               {l.text}
             </text>
           ))}

@@ -50,6 +50,10 @@ async function summarize(ctx: QueryCtx, evaluation: Doc<"evaluations">) {
     .withIndex("by_evaluation", (q) => q.eq("evaluationId", evaluation._id))
     .collect();
   const finished = attempts.filter((a) => a.finishedAt !== undefined);
+  const students = await ctx.db
+    .query("students")
+    .withIndex("by_classroom", (q) => q.eq("classroomId", evaluation.classroomId))
+    .collect();
   return {
     _id: evaluation._id,
     title: evaluation.title,
@@ -59,6 +63,7 @@ async function summarize(ctx: QueryCtx, evaluation: Doc<"evaluations">) {
     level: classroom?.level ?? "inicial",
     questionCount: questions.length,
     maxScore: questions.reduce((s, q) => s + q.points, 0),
+    studentCount: students.length,
     startedCount: attempts.length,
     finishedCount: finished.length,
   };

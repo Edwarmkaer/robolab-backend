@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { localCalendarDate } from "../../domain/evaluation/calendar";
+import { APP_NAME } from "../../shared/brand";
 import { userMessage } from "../../shared/errors";
+import { Icon } from "../../shared/ui/Icon";
 import { speak } from "./speech";
 
 type Props = { token: string; onSignOut: () => void };
@@ -43,10 +45,10 @@ export function StudentHome({ token, onSignOut }: Props) {
       <div className="row spread">
         <span className="brand">
           <img src="/robot/robot.svg" alt="" />
-          Inrobit Aula
+          {APP_NAME}
         </span>
         <button className="btn btn-ghost" type="button" onClick={() => void leave()}>
-          Salir
+          <Icon name="logOut" /> Salir
         </button>
       </div>
       {home === undefined ? (
@@ -56,7 +58,10 @@ export function StudentHome({ token, onSignOut }: Props) {
           <h1>¡Hola, {home.displayName}!</h1>
           <p className="muted">{home.classroomLabel}</p>
           {!evaluation ? (
-            <p className="empty">Hoy no tienes evaluaciones. ¡Vuelve pronto!</p>
+            <div className="empty">
+              <Icon name="calendar" size={32} />
+              <p>Hoy no tienes evaluaciones. ¡Vuelve pronto!</p>
+            </div>
           ) : (
             <>
               <h2>{evaluation.title}</h2>
@@ -69,6 +74,7 @@ export function StudentHome({ token, onSignOut }: Props) {
               </p>
               {error && <p className="alert alert-error">{error}</p>}
               <button className="btn btn-primary" type="button" onClick={() => void begin()}>
+                {!evaluation.finished && <Icon name="play" />}
                 {evaluation.finished ? "Ver mi resultado" : evaluation.attemptId ? "Seguir jugando" : "¡Empezar!"}
               </button>
             </>

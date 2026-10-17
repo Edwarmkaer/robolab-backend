@@ -3,7 +3,9 @@ import { ConvexReactClient } from "convex/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import "@fontsource-variable/nunito";
 import { App } from "./app/App";
+import { ToastProvider } from "./shared/ui/Toast";
 import "./shared/ui/styles.css";
 
 const url = import.meta.env.VITE_CONVEX_URL as string | undefined;
@@ -17,7 +19,9 @@ createRoot(root).render(
   <StrictMode>
     <ConvexAuthProvider client={convex}>
       <BrowserRouter>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </BrowserRouter>
     </ConvexAuthProvider>
   </StrictMode>,

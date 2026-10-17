@@ -1,15 +1,16 @@
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
-
-const MIN_PASSWORD = 8;
+import { normalizeEmail } from "../src/domain/auth/email";
+import { passwordProblem } from "../src/domain/auth/password";
+import { PasswordResetEmail } from "./passwordReset";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password({
       profile(params) {
-        const email = String(params.email ?? "").trim().toLowerCase();
-        const name = typeof params.name === "string" ? params.name.trim() : "";
+        const email = normalizeEmail(String(params.email ?? ""));
+        const name = typeof params.name === "string" ? params.name.trim().replace(/\s+/g, " ") : "";
         if (params.flow === "signUp" && name.length < 2) {
           throw new ConvexError("Escribe tu nombre.");
         }
@@ -17,11 +18,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         if (name) profile.name = name;
         return profile;
       },
+      // Las mismas reglas que muestra el formulario mientras se escribe.
       validatePasswordRequirements(password) {
-        if (password.length < MIN_PASSWORD) {
-          throw new ConvexError(`La contraseña necesita al menos ${MIN_PASSWORD} caracteres.`);
-        }
+        const problem = passwordProblem(password);
+        if (problem) throw new ConvexError(problem);
       },
+      reset: PasswordResetEmail,
     }),
   ],
 });

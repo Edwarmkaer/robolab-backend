@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { formatDuration } from "../../domain/evaluation/scoring";
+import { Icon } from "../../shared/ui/Icon";
 import { speak } from "./speech";
 
 const cheer = (percent: number) =>
@@ -43,7 +44,9 @@ export function ResultView({ token, attemptId }: { token: string; attemptId: Id<
             className={a.isCorrect ? "badge badge-ok" : "badge badge-warn"}
             title={`Respondiste en ${formatDuration(a.responseMs)}`}
           >
-            {a.stage + 1}: {a.isCorrect ? "✓" : "✗"} · {formatDuration(a.responseMs)}
+            <Icon name={a.isCorrect ? "check" : "x"} size={14} />
+            Pregunta {a.stage + 1} · {formatDuration(a.responseMs)}
+            <span className="sr-only">{a.isCorrect ? ", correcta" : ", incorrecta"}</span>
           </span>
         ))}
       </div>
