@@ -6,7 +6,7 @@
  * las mismas notas. Las notas no se escriben a mano: se simulan respuestas
  * y se califican con las mismas reglas que una evaluación real.
  */
-import type { EducationLevel } from "../../src/domain/game/levels";
+import type { EducationLevel } from "../../domain/game/levels";
 import type { QuestionInput } from "./rules";
 
 export const DEMO_CLASS: { level: EducationLevel; grade: string; section: string } = {

@@ -6,9 +6,9 @@
  */
 import { Email } from "@convex-dev/auth/providers/Email";
 import { ConvexError, v } from "convex/values";
-import { RESET_CODE_LENGTH, generateNumericCode } from "../src/domain/auth/codes";
-import { normalizeEmail } from "../src/domain/auth/email";
-import { APP_NAME } from "../src/shared/brand";
+import { RESET_CODE_LENGTH, generateNumericCode } from "../domain/auth/codes";
+import { normalizeEmail } from "../domain/auth/email";
+import { APP_NAME } from "../domain/brand";
 import { api, internal } from "./_generated/api";
 import { type ActionCtx, action } from "./_generated/server";
 import { MailError, sendEmail } from "./lib/mailer";

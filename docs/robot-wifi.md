@@ -2,7 +2,7 @@
 
 Transporte WiFi para el robot de RoboLab. Cumple el mensaje de programa del
 contrato (§2), sus respuestas (§3) y los mínimos de §5. Está probado con
-pruebas automáticas (`convex/robot.test.ts`, `src/features/robot/wifiLink.test.ts`)
+pruebas automáticas (`convex/robot.test.ts` aquí y `src/features/robot/wifiLink.test.ts` en la web)
 y de punta a punta con el robot simulado.
 
 ## Diseño
@@ -48,7 +48,7 @@ Dirección base: la de las rutas HTTP del despliegue, `https://<despliegue>.conv
 `conectado` es `true` si el robot consultó en los últimos 10 s. La web consulta
 el estado cada ~500 ms después de enviar (no hay WebSocket: el relé no reenvía,
 se consulta). El adaptador listo para la interfaz `RobotLink` del contrato
-(§6) está en `src/features/robot/wifiLink.ts`: es un solo archivo sin imports,
+(§6) está en el repo de la web ([robolab-web](https://github.com/orinqq/robolab-web), `src/features/robot/wifiLink.ts`): es un solo archivo sin imports,
 así que otra web lo copia tal cual. El relé normaliza el código y valida las
 letras; el adaptador avisa `received` y `running` aunque una consulta se salte
 un paso (el robot responde `OK` y `RUN` casi juntos):

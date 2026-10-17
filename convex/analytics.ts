@@ -6,7 +6,7 @@
  * demás baja.
  */
 import { v } from "convex/values";
-import { type Best, bestOf } from "../src/domain/evaluation/ranking";
+import { type Best, bestOf } from "../domain/evaluation/ranking";
 import { query } from "./_generated/server";
 import { classroomLabel, requireOwnClassroom, requireTeacher } from "./lib/access";
 import { finishedAttempts, groupByStudent } from "./lib/attempts";

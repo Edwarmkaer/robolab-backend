@@ -1,148 +1,36 @@
-# RoboLab
+# RoboLab: backend
 
-Retos de programación con un robot, para Inicial y Primaria, en dos modos:
+Backend de [RoboLab](https://github.com/orinqq/robolab-web), la app de retos de
+programación con un robot para Inicial y Primaria (Hack the Andes 2026, track
+Educación Escolar). Este repo tiene todo lo que no es pantalla:
 
-- **Explorar retos (sin cuenta).** Cualquiera entra, elige un tópico y un
-  nivel y resuelve retos de pensamiento computacional: armar la secuencia,
-  esquivar obstáculos, predecir dónde termina el robot, corregir un programa
-  con error, pasar por paradas y resolver con pocos bloques. Wayra, la guía,
-  reacciona a cada intento y da hasta 3 pistas. El avance se guarda en el
-  dispositivo.
-- **Clases.** El docente arma evaluaciones (preguntas, alternativas, respuesta
-  correcta y puntaje); el alumno entra con un código, programa el robot y cada
-  vez que llega a una estrella se desbloquea una pregunta. El docente ve los
-  resultados en vivo, un ranking y el desarrollo del aprendizaje.
+- `convex/`: esquema, consultas, mutaciones, acciones y rutas HTTP del backend
+  en [Convex](https://convex.dev), con autenticación de docentes
+  (`@convex-dev/auth`), sesiones de alumnos por código, evaluaciones, ranking,
+  retos abiertos anónimos, correo de recuperación y el relé del robot.
+- `domain/`: el dominio compartido en TypeScript puro (sin React, sin Convex,
+  sin red): intérprete de bloques, simulador, mapas y niveles, calificación,
+  códigos, reglas de validación, retos y protocolo del robot. Lo usan el
+  servidor y la web: es el mismo código en los dos lados.
+- `scripts/`: `setup.mjs` deja listo un despliegue nuevo y `robot-sim.mjs`
+  hace de robot sin placa.
+- `firmware/` y [docs/robot-wifi.md](docs/robot-wifi.md): el ESP32 que recibe el
+  programa por wifi y el contrato que cumple.
 
-Como extra, el mismo programa se puede enviar a un robot físico (ESP32) por
-wifi con el botón "Enviar al robot": ver [docs/robot-wifi.md](docs/robot-wifi.md)
-y el firmware en `firmware/robolab_robot/`.
-
-Hecho para el track **Educación Escolar** de Hack the Andes 2026.
-
-## Qué hace
-
-**Explorar retos**
-
-- Portada con los cinco tópicos STEAM; Tecnología ya tiene 11 retos (5 de
-  Inicial y 6 de Primaria) y los demás se muestran como "Próximamente".
-- Cada reto tiene una ficha (historia, tiempo, habilidad, vista previa del
-  tablero), el juego con Wayra y sus pistas, y "¡Reto logrado!" con intentos,
-  pistas y tiempo.
-- "Mi avance" muestra lo resuelto por tópico en ese dispositivo.
-- Cada partida resuelta se registra de forma anónima (un identificador al azar
-  del dispositivo, sin nombres) para medir el uso real; el servidor vuelve a
-  revisar si el reto se resolvió. `npx convex run explore:stats` da las cifras.
-
-**Docente**
-
-- Se registra e inicia sesión con correo y contraseña. La contraseña pide
-  minúscula, mayúscula, número, símbolo y 8 caracteres, y el formulario marca
-  cada regla mientras se escribe.
-- Si la olvida, recibe un código de 6 dígitos en su correo registrado (vence
-  en 15 minutos). La app solo dice "te enviamos un código" si el correo salió;
-  si no hay cuenta con ese correo o el envío falla, lo avisa.
-- Al entrar ve sus clases y las evaluaciones de hoy.
-- Crea clases (nivel, grado y sección) y agrega alumnos: cada uno recibe un
-  código de 6 caracteres que se puede copiar o imprimir en tarjetas. Los
-  nombres se revisan antes de guardar: solo letras (con tildes, ñ, guion y
-  apóstrofo), sin números, símbolos, emojis ni caracteres invisibles pegados
-  desde otro programa, y sin repetidos.
-- Crea evaluaciones: título, clase, fecha y de 1 a 10 preguntas con 2 a 4
-  alternativas (admiten emojis), respuesta correcta y puntaje. Puede ordenar
-  las preguntas y deshacer una eliminación; cada error se marca en su campo.
-- Ve los resultados en vivo y un ranking que solo ve el docente: más puntaje;
-  a igual puntaje, menos veces rendida, menos intentos de ejecutar y menos
-  tiempo.
-- Ve el desarrollo del aprendizaje con cuatro medidas (logro, intentos por
-  estrella, tiempo y veces que la rindió), el promedio de la clase y la
-  comparación con cada alumno, con tabla de detalle.
-
-**Alumno**
-
-- Entra con su código, sin cuenta ni contraseña.
-- Ve directamente su evaluación del día.
-- Arma un programa tocando bloques (avanzar, girar; en Primaria también
-  retroceder y repetir) y lo ejecuta. Si el robot se sale del camino, se le
-  dice en qué paso y se marca ese bloque.
-- Al llegar a la estrella aparece la pregunta, que también se lee en voz alta.
-- Al final ve su puntaje, el tiempo total, cuántas veces ejecutó el robot y el
-  tiempo de cada respuesta. Puede intentarlo de nuevo: cuenta su mejor
-  puntaje y cuántas veces lo necesitó.
-
-## Arquitectura
-
-```mermaid
-flowchart LR
-  subgraph Navegador["Navegador (React + Vite)"]
-    UI_D["Portal docente"]
-    UI_A["Portal alumno + minijuego"]
-  end
-  subgraph Dominio["src/domain (TypeScript puro)"]
-    G["game: programa, mapas,<br/>simulador, niveles"]
-    E["evaluation: calificación,<br/>códigos, calendario"]
-  end
-  subgraph Convex["Backend (Convex)"]
-    F["Consultas y mutaciones<br/>con autorización"]
-    DB[("Base de datos<br/>reactiva")]
-  end
-  UI_D --> F
-  UI_A --> F
-  UI_A -. "anima la simulación" .-> G
-  F -- "vuelve a simular y califica" --> G
-  F --> E
-  F --> DB
-```
-
-- **Dominio puro y compartido** (`src/domain`). Las reglas del juego y de la
-  calificación no dependen de React ni de Convex. El navegador las usa para
-  animar al robot y el servidor las usa para validar: es el mismo código.
-- **Mismo motor en todo.** Los retos abiertos y las evaluaciones usan el mismo
-  intérprete y el mismo simulador (`src/domain/game`); los retos agregan su
-  revisión en `src/domain/explore` (paradas, límite de bloques, predicción).
-- **El servidor manda.** Cada vez que el alumno toca "Ejecutar", el servidor
-  simula el mismo programa y lo anota (así los intentos son confiables); solo
-  si llegó a la estrella muestra la pregunta.
-  Los tiempos de respuesta salen del reloj del servidor.
-- **La respuesta correcta nunca viaja al alumno.** Las consultas del alumno
-  devuelven la pregunta sin la alternativa correcta.
-- **Cada docente solo ve lo suyo.** Toda consulta pasa por una guarda de
-  autorización (`convex/lib/access.ts`); los alumnos usan una sesión de 8 horas
-  ligada a su código.
-
-### Patrones
-
-| Patrón | Dónde | Para qué |
-|---|---|---|
-| Intérprete | `src/domain/game/program.ts` | Bloques → comandos, con límites de pasos y anidamiento |
-| Estrategia | `src/domain/game/levels.ts` | Cada nivel define sus bloques y mapas; Primaria y Secundaria se agregan sin tocar el simulador |
-| Objeto de valor | `src/domain/evaluation/accessCode.ts` | Códigos sin letras confusas (sin O/0, I/1/L) |
-| Reductor | `src/domain/game/editor.ts`, `questionDraft.ts` | Editores con estado predecible y probado |
-| Guardas | `convex/lib/access.ts` | Autorización en un solo lugar |
-| Adaptador | `convex/lib/mailer.ts` | El proveedor de correo se cambia por configuración, sin tocar el flujo |
-| DTO | `convex/student.ts` | Lo que ve el alumno, sin datos sensibles |
-
-### Carpetas
-
-```
-src/domain/        reglas puras (juego, evaluación, nombres y contraseña) con sus pruebas
-src/features/      pantallas: teacher/, student/, game/
-src/shared/        estilos, errores y componentes comunes
-convex/            esquema, funciones del backend y sus pruebas
-convex/lib/        autorización, validaciones, códigos y datos de demostración
-public/            gráficos del robot, bloques y estrella
-```
+La web (Vite + React) vive en [orinqq/robolab-web](https://github.com/orinqq/robolab-web)
+y consume este repo como paquete npm (ver "Cómo lo consume la web").
 
 ## Cómo correrlo
 
 Requisitos: **Node 22.12 o superior** (hay un `.nvmrc`) y git.
 
 ```bash
-git clone https://github.com/orinqq/robolab.git
-cd robolab
+git clone https://github.com/orinqq/robolab-backend.git
+cd robolab-backend
 npm ci
 ```
 
-**1. Backend (Convex).** En una terminal, y dejarla abierta:
+**1. Backend local.** En una terminal, y dejarla abierta:
 
 ```bash
 npx convex dev
@@ -150,10 +38,11 @@ npx convex dev
 
 La primera vez pregunta cómo trabajar: elige **correr Convex en local, sin
 cuenta** (o inicia sesión si vas a usar la nube). Crea tu propio backend, sube
-las funciones y escribe `.env.local` con su dirección. Cada computadora tiene
+las funciones, regenera `convex/_generated/` y escribe `.env.local` con
+`CONVEX_DEPLOYMENT`, `CONVEX_URL` y `CONVEX_SITE_URL`. Cada computadora tiene
 su backend y sus datos; no se comparten.
 
-**2. Configuración del backend (una vez).** En otra terminal:
+**2. Configuración del despliegue (una vez).** En otra terminal:
 
 ```bash
 npm run setup
@@ -164,43 +53,18 @@ fija `SITE_URL` en `http://localhost:5173` y deja el correo de recuperación en
 modo consola (`MAIL_PROVIDER=console`: el código aparece en `npx convex logs`).
 Solo agrega lo que falta; se puede correr de nuevo sin riesgo.
 
-**3. Web.**
-
-```bash
-npm run dev
-```
-
-Abre http://localhost:5173. Sin cuenta se juegan los retos; en "Soy docente"
-se crea una cuenta local.
+**3. Web.** Clonar [robolab-web](https://github.com/orinqq/robolab-web) y poner
+en su `.env.local` la dirección de este backend:
+`VITE_CONVEX_URL=<el CONVEX_URL de tu .env.local>`. Su README explica el resto.
 
 Para enviar correos de verdad, el despliegue necesita `MAIL_PROVIDER=resend`,
 `RESEND_API_KEY` y `MAIL_FROM` (con `npx convex env set`, nunca en el código).
 `.env.example` resume todas las variables.
 
-### Producción (Convex en la nube + Vercel)
-
-1. **Backend.** Con sesión iniciada en Convex (`npx convex login`), crear el
-   proyecto y el despliegue de producción: `npx convex dev --once --configure=new`
-   y luego `npx convex deploy`. Configurarlo una vez con
-   `npm run setup -- --prod --site-url https://<la web en Vercel>`: genera las
-   claves de sesión y fija `SITE_URL`; no toca `MAIL_PROVIDER`, así la app avisa
-   que el correo no está configurado hasta que se agregue Resend.
-2. **Web.** Importar el repositorio en Vercel (framework Vite). Para que el
-   backend se despliegue junto con cada versión de la web, en Vercel:
-   - Build Command: `npx convex deploy --cmd 'npm run build'`
-   - Variable `CONVEX_DEPLOY_KEY`: una *production deploy key* generada en el
-     panel de Convex (Settings → Deploy keys). Con ella, Convex sube las
-     funciones y define `VITE_CONVEX_URL` durante el build.
-   `vercel.json` ya trae las reglas de la SPA (toda ruta carga `index.html`) y
-   los encabezados de seguridad.
-3. **Robot y otras webs.** `npx convex run robot:register --prod '{"name":"Kusi"}'`
-   da la clave del firmware; `npx convex env set --prod ROBOT_WEB_ORIGINS https://<otra web>`
-   permite que otra web use las rutas `/robot/web/*`.
-
 ### Datos de demostración
 
-Para presentar la gráfica con historia: registrar un docente en la app y luego
-(en bash o PowerShell; en cmd las comillas simples no funcionan)
+Para presentar la gráfica de progreso con historia: registrar un docente en la
+web y luego (en bash o PowerShell; en cmd las comillas simples no funcionan)
 
 ```bash
 npx convex run demo:seed '{"email":"correo-del-docente","today":"AAAA-MM-DD"}'
@@ -212,39 +76,110 @@ de respuestas simuladas con semilla fija y se califican con las mismas reglas
 que una evaluación real. Es una función interna: no se puede llamar desde el
 navegador y no guarda contraseñas.
 
-## Pruebas y calidad
+`npx convex run explore:stats` da las cifras de uso anónimo de los retos abiertos.
 
-Para colaborar (personas o agentes de IA), las reglas del código están en
-[AGENTS.md](AGENTS.md). GitHub Actions corre `npm run verify` en cada push y pull request.
+### Robot por wifi y simulador
 
 ```bash
-npm run verify
+npx convex run robot:register '{"name":"Kusi"}'          # devuelve el código y la clave del firmware
+npx convex run robot:list                                 # robots, código vigente y si están conectados
+npm run robot:simulador -- --clave <clave> [--servidor https://<despliegue>.convex.site]
 ```
 
-Corre, en orden, el chequeo de tipos, ESLint, las pruebas (Vitest, con
-`convex-test` para el backend) y el build. Las pruebas cubren el intérprete de
-bloques, el simulador, que todos los mapas tengan solución, la calificación,
-los códigos y, en el backend, la autorización entre docentes, la validación de
-datos y el flujo completo del alumno.
+Sin `--servidor`, el simulador usa el `CONVEX_SITE_URL` de `.env.local`. El
+protocolo, las rutas HTTP y el firmware del ESP32 están en
+[docs/robot-wifi.md](docs/robot-wifi.md). La clave del robot va en
+`firmware/robolab_robot/secretos.h`, que no se sube al repo.
+
+## Cómo lo consume la web
+
+La web instala este repo como dependencia git, directo desde GitHub por https
+(en Vercel no hay llaves ssh):
+
+```bash
+npm install git+https://github.com/orinqq/robolab-backend.git#main
+```
+
+npm guarda en el `package-lock.json` de la web el **commit exacto** que
+instaló (`resolved: git+https://...#<sha>`). Por eso, **después de cambiar el
+backend hay que actualizarlo en la web**: volver a correr ese `npm install` y
+commitear el lockfile. Si no, la web sigue compilando contra el commit viejo.
+
+El paquete solo expone lo que la web usa (campo `exports`):
+
+| Import | Qué es |
+|---|---|
+| `@robolab/backend/convex/_generated/api` | las referencias tipadas a las funciones (`api.student.start`, ...) |
+| `@robolab/backend/convex/_generated/dataModel` | los tipos `Id<"tabla">` y `Doc<"tabla">` |
+| `@robolab/backend/domain/<ruta>` | cualquier módulo del dominio, por ejemplo `domain/game/program` |
+
+Se publican los archivos `.ts` tal cual (campo `files`: `convex` y `domain`);
+Vite y TypeScript de la web los compilan. No hay script `prepare` ni paso de
+build: si se agregara, npm lo ejecutaría en cada instalación desde git.
+
+### Reglas de contrato
+
+Mientras la web apunte a `main`, cada push a `main` es una versión que la web
+puede instalar. Para no romperla:
+
+- **No cambies los argumentos ni el resultado de una función que la web ya usa,
+  ni la quites.** Agrega una función nueva (o un argumento opcional), cambia la
+  web para usarla y, cuando ningún commit de la web la necesite, quita la vieja
+  en un cambio aparte.
+- Lo mismo con el dominio: las firmas exportadas de `domain/` son API pública.
+- Correr `npx convex dev` después de tocar `convex/` para que
+  `convex/_generated/` quede al día, y subirlo en el mismo commit.
+- `npm run verify` en verde antes de cada push (GitHub Actions lo vuelve a correr).
+
+## Despliegue
+
+El despliegue de producción ya existe en Convex. Para subir las funciones a mano,
+con sesión iniciada (`npx convex login`):
+
+```bash
+npx convex deploy
+```
+
+La primera vez, configurarlo con
+`npm run setup -- --prod --site-url https://<la web en Vercel>` (claves de sesión
+y `SITE_URL`; no toca `MAIL_PROVIDER`, así la app avisa que el correo no está
+configurado hasta que se agregue Resend) y permitir el origen de la web para el
+robot: `npx convex env set --prod ROBOT_WEB_ORIGINS https://<la web>`.
+
+**Automático.** `.github/workflows/desplegar.yml` corre en cada push a `main`:
+`npm ci`, `npm run verify` y `npx convex deploy`. El deploy usa el secreto
+`CONVEX_DEPLOY_KEY` (una *production deploy key* del panel de Convex, Settings →
+Deploy keys) que pone quien administra el repo en Settings → Secrets and
+variables → Actions. Si el secreto está vacío, ese paso se salta y el flujo solo
+verifica.
+
+La web se despliega aparte, en Vercel, con `VITE_CONVEX_URL` apuntando a este
+despliegue: ver el README de [robolab-web](https://github.com/orinqq/robolab-web).
+
+## Pruebas y calidad
+
+```bash
+npm run verify     # tipos + lint + pruebas
+```
+
+Las pruebas del dominio corren en Node; las del backend usan
+[convex-test](https://github.com/get-convex/convex-test) en `edge-runtime`, sin
+necesidad de un backend levantado: cubren la autorización entre docentes, la
+validación de datos, el flujo completo del alumno, los retos abiertos, la
+recuperación de contraseña y el relé del robot. Las reglas para colaborar
+(personas o agentes de IA) están en [AGENTS.md](AGENTS.md).
 
 ## Decisiones
 
 - **Convex** como backend: base de datos reactiva (los resultados en vivo no
   necesitan código extra), funciones tipadas de punta a punta y autenticación
   integrada.
-- **Editor de bloques por toques**, no por arrastre: más fácil para manos de
-  5 años y para pantallas táctiles.
-- **Retroalimentación determinista**: el simulador dice en qué paso falló el
-  robot. No se usa un modelo de IA para corregir, así que el resultado es
-  explicable y no tiene costo por uso.
+- **El servidor manda.** Cada vez que el alumno toca "Ejecutar", el servidor
+  vuelve a simular el programa con el mismo dominio y lo anota; los tiempos
+  salen de su reloj. La respuesta correcta nunca viaja al alumno.
+- **Dominio como paquete, no como copia.** La web y el servidor comparten
+  `domain/` por npm para que una regla del juego no exista dos veces.
 - **Fechas como texto `AAAA-MM-DD`**: "hoy" significa lo mismo para el docente,
   el alumno y el servidor, sin problemas de zona horaria.
-- **Gráfica en SVG propio**, sin librería: liviana, accesible (leyenda,
-  etiquetas directas, tabla) y con colores probados para daltonismo.
-
-## Créditos
-
-Los gráficos del robot y de los bloques vienen del kit Inrobit que el equipo
-hizo en 2025. Wayra se dibuja con [blobatar](https://github.com/Alain00/blobatar)
-(MIT), en el navegador y sin conexión a terceros. Todo el código de esta
-aplicación es nuevo.
+- **Relé en la nube para el robot**: una página HTTPS no puede hablarle a un
+  aparato de la red local, así que el robot recoge el programa del backend.

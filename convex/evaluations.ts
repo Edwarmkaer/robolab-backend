@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, mutation, query } from "./_generated/server";
-import { rankStudents } from "../src/domain/evaluation/ranking";
+import { rankStudents } from "../domain/evaluation/ranking";
 import { classroomLabel, requireOwnClassroom, requireOwnEvaluation, requireTeacher } from "./lib/access";
 import { attemptNumber, finishedAttempts, groupByStudent } from "./lib/attempts";
 import { LIMITS, cleanQuestions, cleanText, requireCalendarDate } from "./lib/rules";

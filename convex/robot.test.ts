@@ -1,6 +1,6 @@
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { move, repeat } from "../src/domain/game/program";
+import { move, repeat } from "../domain/game/program";
 import { api, internal } from "./_generated/api";
 import { PAIRING_TTL_MS, STALE_MS } from "./robot";
 import schema from "./schema";

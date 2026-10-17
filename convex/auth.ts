@@ -1,8 +1,8 @@
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
-import { normalizeEmail } from "../src/domain/auth/email";
-import { passwordProblem } from "../src/domain/auth/password";
+import { normalizeEmail } from "../domain/auth/email";
+import { passwordProblem } from "../domain/auth/password";
 import { PasswordResetEmail } from "./passwordReset";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({

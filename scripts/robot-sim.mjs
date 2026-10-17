@@ -6,7 +6,7 @@
  *
  * Uso:
  *   npm run robot:simulador -- --clave <clave del robot> [--servidor https://….convex.site] [--array] [--paso 300]
- * Sin --servidor usa VITE_CONVEX_SITE_URL de .env.local (el backend local).
+ * Sin --servidor usa CONVEX_SITE_URL de .env.local (el backend local).
  * Ctrl+C para salir.
  */
 import { existsSync, readFileSync } from "node:fs";
@@ -20,7 +20,7 @@ function localSiteUrl() {
   if (!existsSync(".env.local")) return undefined;
   const line = readFileSync(".env.local", "utf8")
     .split(/\r?\n/)
-    .find((l) => l.startsWith("VITE_CONVEX_SITE_URL="));
+    .find((l) => /^(VITE_)?CONVEX_SITE_URL=/.test(l));
   return line?.split("=")[1]?.trim();
 }
 

@@ -1,0 +1,27 @@
+name: Desplegar
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    env:
+      # Lo pone quien administra el repo (Settings → Secrets and variables → Actions):
+      # una "production deploy key" generada en el panel de Convex (Settings → Deploy keys).
+      # Mientras el secreto esté vacío, el flujo verifica el código pero no despliega.
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Tipos, lint y pruebas (dominio y backend con convex-test). No necesita secretos.
+      - run: npm run verify
+      # Sube las funciones al despliegue de producción que indica la deploy key.
+      - name: Desplegar en Convex
+        if: ${{ env.CONVEX_DEPLOY_KEY != '' }}
+        run: npx convex deploy

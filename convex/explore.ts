@@ -4,9 +4,9 @@
  * qué retos resuelven. El servidor vuelve a revisar cada intento.
  */
 import { ConvexError, v } from "convex/values";
-import { challengeById } from "../src/domain/explore/challenges";
-import { checkPrediction, checkProgram } from "../src/domain/explore/check";
-import { ProgramError, parseProgram } from "../src/domain/game/program";
+import { challengeById } from "../domain/explore/challenges";
+import { checkPrediction, checkProgram } from "../domain/explore/check";
+import { ProgramError, parseProgram } from "../domain/game/program";
 import { internalQuery, mutation } from "./_generated/server";
 
 const DEVICE_ID = /^[0-9a-f]{32}$/;

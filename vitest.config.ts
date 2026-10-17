@@ -6,7 +6,7 @@ export default defineConfig({
       {
         test: {
           name: "dominio",
-          include: ["src/**/*.test.ts"],
+          include: ["domain/**/*.test.ts"],
           environment: "node",
         },
       },

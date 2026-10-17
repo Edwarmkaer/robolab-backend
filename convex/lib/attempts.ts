@@ -1,4 +1,4 @@
-import type { FinishedAttempt } from "../../src/domain/evaluation/ranking";
+import type { FinishedAttempt } from "../../domain/evaluation/ranking";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 

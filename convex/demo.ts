@@ -8,8 +8,8 @@
  * solo se le agrega una clase con historia. Nunca se guardan contraseñas.
  */
 import { ConvexError, v } from "convex/values";
-import { addDays } from "../src/domain/evaluation/calendar";
-import { gradeEvaluation } from "../src/domain/evaluation/scoring";
+import { addDays } from "../domain/evaluation/calendar";
+import { gradeEvaluation } from "../domain/evaluation/scoring";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
 import { uniqueAccessCode } from "./lib/codes";

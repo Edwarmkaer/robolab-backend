@@ -1,5 +1,5 @@
 import { ConvexError } from "convex/values";
-import { generateAccessCode } from "../../src/domain/evaluation/accessCode";
+import { generateAccessCode } from "../../domain/evaluation/accessCode";
 import type { MutationCtx } from "../_generated/server";
 
 /** Código de acceso que ningún otro alumno tiene. */

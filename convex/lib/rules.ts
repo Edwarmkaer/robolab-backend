@@ -4,8 +4,8 @@
  * errores para el usuario.
  */
 import { ConvexError } from "convex/values";
-import { isCalendarDate } from "../../src/domain/evaluation/calendar";
-import { LIMITS, type QuestionInput, normalizeText, questionIssues } from "../../src/domain/evaluation/rules";
+import { isCalendarDate } from "../../domain/evaluation/calendar";
+import { LIMITS, type QuestionInput, normalizeText, questionIssues } from "../../domain/evaluation/rules";
 
 export { LIMITS };
 export type { QuestionInput };

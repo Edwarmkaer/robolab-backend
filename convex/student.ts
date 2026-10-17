@@ -12,12 +12,12 @@ import {
   generateSessionToken,
   isValidAccessCode,
   normalizeAccessCode,
-} from "../src/domain/evaluation/accessCode";
-import { isCalendarDate } from "../src/domain/evaluation/calendar";
-import { gradeAnswer, gradeEvaluation } from "../src/domain/evaluation/scoring";
-import { policyFor } from "../src/domain/game/levels";
-import { ProgramError, compile, countBlocks, parseProgram, usesOnly } from "../src/domain/game/program";
-import { simulate } from "../src/domain/game/simulator";
+} from "../domain/evaluation/accessCode";
+import { isCalendarDate } from "../domain/evaluation/calendar";
+import { gradeAnswer, gradeEvaluation } from "../domain/evaluation/scoring";
+import { policyFor } from "../domain/game/levels";
+import { ProgramError, compile, countBlocks, parseProgram, usesOnly } from "../domain/game/program";
+import { simulate } from "../domain/game/simulator";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, mutation, query } from "./_generated/server";
 import { attemptNumber, attemptsOf, runsOf } from "./lib/attempts";

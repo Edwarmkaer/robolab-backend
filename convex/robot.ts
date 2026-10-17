@@ -20,9 +20,9 @@
  * Devuelve el código (para la web) y la clave (solo para el firmware).
  */
 import { ConvexError, v } from "convex/values";
-import { generateAccessCode, generateSessionToken } from "../src/domain/evaluation/accessCode";
-import { ProgramError } from "../src/domain/game/program";
-import { isValidRobotCode, normalizeRobotCode, parseRobotReply, toRobotText, validateSequence } from "../src/domain/robot/protocol";
+import { generateAccessCode, generateSessionToken } from "../domain/evaluation/accessCode";
+import { ProgramError } from "../domain/game/program";
+import { isValidRobotCode, normalizeRobotCode, parseRobotReply, toRobotText, validateSequence } from "../domain/robot/protocol";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type MutationCtx, type QueryCtx, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 

@@ -4,7 +4,7 @@ import { mutation, query } from "./_generated/server";
 import { classroomLabel, requireOwnClassroom, requireTeacher } from "./lib/access";
 import { uniqueAccessCode } from "./lib/codes";
 import { LIMITS, cleanText } from "./lib/rules";
-import { parseStudentList } from "../src/domain/classroom/studentName";
+import { parseStudentList } from "../domain/classroom/studentName";
 import { educationLevel } from "./schema";
 
 export const create = mutation({
