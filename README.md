@@ -134,32 +134,53 @@ public/            gráficos del robot, bloques y estrella
 
 ## Cómo correrlo
 
-Requisitos: Node 22.12 o superior.
+Requisitos: **Node 22.12 o superior** (hay un `.nvmrc`) y git.
 
 ```bash
-npm install
+git clone https://github.com/orinqq/robolab.git
+cd robolab
+npm ci
+```
+
+**1. Backend (Convex).** En una terminal, y dejarla abierta:
+
+```bash
 npx convex dev
 ```
 
-`convex dev` crea el despliegue (local o en la nube), genera los tipos y deja
-la URL en `.env.local`. La primera vez hay que configurar las claves de
-inicio de sesión del docente (`JWT_PRIVATE_KEY`, `JWKS` y `SITE_URL`) siguiendo
-la guía de Convex Auth. Para el correo de recuperación:
+La primera vez pregunta cómo trabajar: elige **correr Convex en local, sin
+cuenta** (o inicia sesión si vas a usar la nube). Crea tu propio backend, sube
+las funciones y escribe `.env.local` con su dirección. Cada computadora tiene
+su backend y sus datos; no se comparten.
 
-- En desarrollo: `npx convex env set MAIL_PROVIDER console`. El correo queda
-  en los registros (`npx convex logs`) en lugar de enviarse.
-- Para enviar de verdad: `MAIL_PROVIDER=resend`, `RESEND_API_KEY` y
-  `MAIL_FROM` en las variables del despliegue (nunca en el código).
+**2. Configuración del backend (una vez).** En otra terminal:
 
-En otra terminal:
+```bash
+npm run setup
+```
+
+Genera las claves de inicio de sesión del docente (`JWT_PRIVATE_KEY`, `JWKS`),
+fija `SITE_URL` en `http://localhost:5173` y deja el correo de recuperación en
+modo consola (`MAIL_PROVIDER=console`: el código aparece en `npx convex logs`).
+Solo agrega lo que falta; se puede correr de nuevo sin riesgo.
+
+**3. Web.**
 
 ```bash
 npm run dev
 ```
 
+Abre http://localhost:5173. Sin cuenta se juegan los retos; en "Soy docente"
+se crea una cuenta local.
+
+Para enviar correos de verdad, el despliegue necesita `MAIL_PROVIDER=resend`,
+`RESEND_API_KEY` y `MAIL_FROM` (con `npx convex env set`, nunca en el código).
+`.env.example` resume todas las variables.
+
 ### Datos de demostración
 
 Para presentar la gráfica con historia: registrar un docente en la app y luego
+(en bash o PowerShell; en cmd las comillas simples no funcionan)
 
 ```bash
 npx convex run demo:seed '{"email":"correo-del-docente","today":"AAAA-MM-DD"}'
@@ -172,6 +193,9 @@ que una evaluación real. Es una función interna: no se puede llamar desde el
 navegador y no guarda contraseñas.
 
 ## Pruebas y calidad
+
+Para colaborar (personas o agentes de IA), las reglas del código están en
+[AGENTS.md](AGENTS.md). GitHub Actions corre `npm run verify` en cada push y pull request.
 
 ```bash
 npm run verify

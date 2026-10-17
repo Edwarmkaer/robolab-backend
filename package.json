@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "dev:backend": "convex dev",
+    "setup": "node scripts/setup.mjs",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
