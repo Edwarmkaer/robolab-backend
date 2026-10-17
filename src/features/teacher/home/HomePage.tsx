@@ -50,7 +50,7 @@ export function HomePage() {
                   </div>
                   <span className="muted small">{e.classroomLabel}</span>
                   <div className="meter" role="img" aria-label={`${share} % de la clase terminó`}>
-                    <span style={{ width: `${share}%` }} />
+                    <span style={{ ["--value" as string]: share / 100 }} />
                   </div>
                   <span className="small">
                     <strong>{e.finishedCount}</strong> de {e.studentCount} terminaron

@@ -584,12 +584,14 @@ textarea.input {
   overflow: hidden;
 }
 
+/* El avance se escala (no cambia el ancho) para animar sin recalcular el diseño. */
 .meter > span {
   display: block;
   height: 100%;
   background: var(--c-ok);
-  border-radius: inherit;
-  transition: width 300ms var(--ease);
+  transform: scaleX(var(--value, 0));
+  transform-origin: left;
+  transition: transform 300ms var(--ease);
 }
 
 .live {

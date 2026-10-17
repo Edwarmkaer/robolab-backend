@@ -50,7 +50,7 @@ export function EvaluationDetail() {
             {finished.length} <span className="muted small">de {detail.results.length}</span>
           </strong>
           <div className="meter" aria-hidden="true">
-            <span style={{ width: `${detail.results.length ? (finished.length / detail.results.length) * 100 : 0}%` }} />
+            <span style={{ ["--value" as string]: detail.results.length ? finished.length / detail.results.length : 0 }} />
           </div>
         </div>
         <div className="card stack-sm">
