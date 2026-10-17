@@ -27,7 +27,7 @@ export const MAX_DEPTH = 3;
 
 export class ProgramError extends Error {
   constructor(
-    readonly code: "TOO_LONG" | "INVALID_REPEAT" | "TOO_DEEP" | "UNKNOWN_BLOCK",
+    readonly code: "TOO_LONG" | "INVALID_REPEAT" | "TOO_DEEP" | "UNKNOWN_BLOCK" | "EMPTY",
     message: string,
   ) {
     super(message);

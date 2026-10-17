@@ -13,6 +13,7 @@ import { Guide, type Mood } from "../../shared/ui/Guide";
 import { Icon } from "../../shared/ui/Icon";
 import { BlockEditor } from "../game/BlockEditor";
 import { Board } from "../game/Board";
+import { RobotSend } from "../robot/RobotSend";
 import { STEP_MS, useRunner } from "../game/useRunner";
 import { speak } from "../student/speech";
 import { Breadcrumbs, ExploreLayout, LEVEL_INFO } from "./ExploreLayout";
@@ -214,6 +215,7 @@ function Play({ challenge, onSolved }: { challenge: Challenge; onSolved: (stats:
                 <Icon name="rotate" /> Borrar
               </button>
             </div>
+            <RobotSend program={editor.blocks} disabled={busy} />
           </>
         )}
       </div>

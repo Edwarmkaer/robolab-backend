@@ -12,6 +12,7 @@ import { Guide } from "../../shared/ui/Guide";
 import { Icon } from "../../shared/ui/Icon";
 import { BlockEditor } from "../game/BlockEditor";
 import { Board } from "../game/Board";
+import { RobotSend } from "../robot/RobotSend";
 import { STEP_MS, useRunner } from "../game/useRunner";
 import { type PublicQuestion, QuestionDialog } from "./QuestionDialog";
 import { ResultView } from "./ResultView";
@@ -123,6 +124,7 @@ function StageView({
             <Icon name="rotate" /> Borrar
           </button>
         </div>
+        <RobotSend program={editor.blocks} disabled={runner.running} />
       </div>
       {question && <QuestionDialog question={question} busy={busy} onAnswer={(o) => void onAnswer(o)} />}
     </div>

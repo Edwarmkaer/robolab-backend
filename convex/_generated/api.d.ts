@@ -25,6 +25,7 @@ import type * as lib_mailer from "../lib/mailer.js";
 import type * as lib_rules from "../lib/rules.js";
 import type * as mail from "../mail.js";
 import type * as passwordReset from "../passwordReset.js";
+import type * as robot from "../robot.js";
 import type * as student from "../student.js";
 import type * as users from "../users.js";
 
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "lib/rules": typeof lib_rules;
   mail: typeof mail;
   passwordReset: typeof passwordReset;
+  robot: typeof robot;
   student: typeof student;
   users: typeof users;
 }>;

@@ -13,6 +13,10 @@ Retos de programación con un robot, para Inicial y Primaria, en dos modos:
   vez que llega a una estrella se desbloquea una pregunta. El docente ve los
   resultados en vivo, un ranking y el desarrollo del aprendizaje.
 
+Como extra, el mismo programa se puede enviar a un robot físico (ESP32) por
+wifi con el botón "Enviar al robot": ver [docs/robot-wifi.md](docs/robot-wifi.md)
+y el firmware en `firmware/robolab_robot/`.
+
 Hecho para el track **Educación Escolar** de Hack the Andes 2026.
 
 ## Qué hace

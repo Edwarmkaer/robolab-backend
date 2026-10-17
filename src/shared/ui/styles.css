@@ -2055,3 +2055,41 @@ button.tile:hover {
 .tile[data-answer] {
   box-shadow: inset 0 0 0 4px var(--c-ok);
 }
+
+/* ---------- Robot físico ---------- */
+.robot-panel {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--c-line-strong);
+  background: var(--c-surface);
+}
+
+.robot-panel > .btn {
+  justify-self: start;
+}
+
+.robot-panel .input.code {
+  max-width: 150px;
+  text-transform: uppercase;
+}
+
+.robot-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.robot-state .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c-line-strong);
+}
+
+.robot-state[data-online="true"] .dot {
+  background: var(--c-ok);
+}
