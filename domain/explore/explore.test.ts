@@ -129,6 +129,12 @@ describe("catálogo de retos", () => {
 });
 
 describe("revisión de intentos", () => {
+  it("Inicial puede corregir su recorrido retrocediendo sin usar bucles", () => {
+    const program = [F, move("BACKWARD"), F, F, F];
+    expect(checkProgram(byId("inicial-paseo"), program).result).toMatchObject({ ok: true });
+    expect(checkProgram(byId("inicial-paseo"), [repeat(3, [F])]).result).toMatchObject({ ok: false, reason: "BLOCKS" });
+  });
+
   it("dice en qué paso se salió del camino", () => {
     const fix = byId("inicial-ciencia-arregla");
     if (fix.kind !== "fix") throw new Error("inicial-ciencia-arregla debería ser de corregir");

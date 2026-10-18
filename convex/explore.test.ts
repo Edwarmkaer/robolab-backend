@@ -9,6 +9,13 @@ const DEVICE = "a".repeat(32);
 const F = move("FORWARD");
 
 describe("modo abierto: partidas anónimas", () => {
+  it("el servidor acepta retroceder en un programa de Inicial y vuelve a simularlo", async () => {
+    const t = convexTest(schema, modules);
+    const base = { deviceId: DEVICE, challengeId: "inicial-paseo", runs: 1, hints: 0, ms: 5000 };
+    expect(await t.mutation(api.explore.recordPlay, { ...base, program: [F, move("BACKWARD"), F, F, F] })).toEqual({ solved: true });
+    expect(await t.mutation(api.explore.recordPlay, { ...base, program: [F, move("BACKWARD")] })).toEqual({ solved: false });
+  });
+
   it("el servidor verifica si el reto se resolvió, sin creerle al navegador", async () => {
     const t = convexTest(schema, modules);
     const base = { deviceId: DEVICE, runs: 2, hints: 1, ms: 40_000 };

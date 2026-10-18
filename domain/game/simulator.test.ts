@@ -113,9 +113,8 @@ describe("bancos de mapas por nivel", () => {
     expect(() => policy.mapFor(-1)).toThrowError(RangeError);
   });
 
-  it("Inicial no ofrece bucles ni retroceder", () => {
+  it("Inicial no ofrece bucles", () => {
     const palette = policyFor("inicial").palette;
     expect(palette.has("repeat")).toBe(false);
-    expect(palette.has("BACKWARD")).toBe(false);
   });
 });

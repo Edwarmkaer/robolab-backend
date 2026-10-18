@@ -42,7 +42,7 @@ const definePolicy = (
   },
 });
 
-// Inicial: recorridos cortos, solo avanzar y girar. Dificultad creciente.
+// Inicial: recorridos cortos con los cuatro movimientos, sin bucles.
 const INICIAL_MAPS = [
   parseMap("inicial-1", ["S..G"], 90),
   parseMap("inicial-2", ["S.#", "#.#", "#.G"], 90),
@@ -59,7 +59,7 @@ const PRIMARIA_MAPS = [
 ];
 
 export const LEVEL_POLICIES: Record<EducationLevel, LevelPolicy> = {
-  inicial: definePolicy("inicial", ["FORWARD", "TURN_LEFT", "TURN_RIGHT"], INICIAL_MAPS),
+  inicial: definePolicy("inicial", ["FORWARD", "BACKWARD", "TURN_LEFT", "TURN_RIGHT"], INICIAL_MAPS),
   primaria: definePolicy(
     "primaria",
     ["FORWARD", "BACKWARD", "TURN_LEFT", "TURN_RIGHT", "repeat"],
