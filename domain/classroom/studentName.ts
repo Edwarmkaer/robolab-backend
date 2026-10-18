@@ -7,6 +7,8 @@
 
 export const NAME_MIN_LETTERS = 2;
 export const NAME_MAX = 40;
+/** El apodo con que un alumno se une a su clase: más corto, para que quepa en las tablas del docente. */
+export const NICKNAME_MAX = 24;
 
 export type NameCheck = { readonly ok: true; readonly name: string } | { readonly ok: false; readonly reason: string };
 
@@ -38,24 +40,43 @@ function titleCase(name: string): string {
     .join(" ");
 }
 
-export function cleanStudentName(raw: string): NameCheck {
+/** Limpia y revisa las letras y el largo; la mayúscula inicial la decide cada uso. */
+function check(raw: string, max: number): NameCheck {
   const name = normalize(raw);
 
   const bad = [...new Set([...name].filter((ch) => !ALLOWED_CHAR.test(ch)))];
   if (bad.length > 0) {
     return { ok: false, reason: `Tiene caracteres no permitidos: ${bad.map(describeChar).join(" ")}. Usa solo letras.` };
   }
-  if ([...name].length > NAME_MAX) return { ok: false, reason: `Muy largo: máximo ${NAME_MAX} caracteres.` };
+  if ([...name].length > max) return { ok: false, reason: `Muy largo: máximo ${max} caracteres.` };
   if ((name.match(/\p{L}/gu) ?? []).length < NAME_MIN_LETTERS) {
     return { ok: false, reason: `Muy corto: escribe al menos ${NAME_MIN_LETTERS} letras.` };
   }
   if (!name.split(" ").every((word) => WORD.test(word))) {
     return { ok: false, reason: "Revisa los signos: cada palabra empieza con una letra." };
   }
+  return { ok: true, name };
+}
 
-  const allLower = name === name.toLocaleLowerCase("es");
-  const allUpper = name === name.toLocaleUpperCase("es");
-  return { ok: true, name: allLower || allUpper ? titleCase(name) : name };
+/** Vino todo en minúsculas o todo en mayúsculas: no se escribió con intención. */
+const plainCase = (name: string) => name === name.toLocaleLowerCase("es") || name === name.toLocaleUpperCase("es");
+
+export function cleanStudentName(raw: string): NameCheck {
+  const checked = check(raw, NAME_MAX);
+  if (!checked.ok) return checked;
+  return { ok: true, name: plainCase(checked.name) ? titleCase(checked.name) : checked.name };
+}
+
+/**
+ * Apodo con que el alumno se une a su clase ("Pingüino veloz"). Mismas letras
+ * que un nombre, más corto, y se respeta cómo lo escribió: solo se pone
+ * mayúscula inicial si vino todo en minúsculas o en mayúsculas.
+ */
+export function cleanNickname(raw: string): NameCheck {
+  const checked = check(raw, NICKNAME_MAX);
+  if (!checked.ok || !plainCase(checked.name)) return checked;
+  const lower = checked.name.toLocaleLowerCase("es");
+  return { ok: true, name: lower.replace(/^\p{L}/u, (letter) => letter.toLocaleUpperCase("es")) };
 }
 
 /** Clave para detectar repetidos: sin tildes, sin mayúsculas, espacios simples. */

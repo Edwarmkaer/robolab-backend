@@ -9,6 +9,7 @@
  */
 
 import type * as analytics from "../analytics.js";
+import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
 import type * as classrooms from "../classrooms.js";
 import type * as demo from "../demo.js";
@@ -16,19 +17,23 @@ import type * as evaluations from "../evaluations.js";
 import type * as explore from "../explore.js";
 import type * as http from "../http.js";
 import type * as impact from "../impact.js";
+import type * as lab from "../lab.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_attempts from "../lib/attempts.js";
+import type * as lib_classwork from "../lib/classwork.js";
 import type * as lib_codes from "../lib/codes.js";
 import type * as lib_demoData from "../lib/demoData.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_impact from "../lib/impact.js";
 import type * as lib_mailPolicy from "../lib/mailPolicy.js";
 import type * as lib_mailer from "../lib/mailer.js";
+import type * as lib_plays from "../lib/plays.js";
 import type * as lib_rules from "../lib/rules.js";
 import type * as mail from "../mail.js";
 import type * as passwordReset from "../passwordReset.js";
 import type * as robot from "../robot.js";
 import type * as student from "../student.js";
+import type * as teacherHome from "../teacherHome.js";
 import type * as users from "../users.js";
 
 import type {
@@ -39,6 +44,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   analytics: typeof analytics;
+  assignments: typeof assignments;
   auth: typeof auth;
   classrooms: typeof classrooms;
   demo: typeof demo;
@@ -46,19 +52,23 @@ declare const fullApi: ApiFromModules<{
   explore: typeof explore;
   http: typeof http;
   impact: typeof impact;
+  lab: typeof lab;
   "lib/access": typeof lib_access;
   "lib/attempts": typeof lib_attempts;
+  "lib/classwork": typeof lib_classwork;
   "lib/codes": typeof lib_codes;
   "lib/demoData": typeof lib_demoData;
   "lib/env": typeof lib_env;
   "lib/impact": typeof lib_impact;
   "lib/mailPolicy": typeof lib_mailPolicy;
   "lib/mailer": typeof lib_mailer;
+  "lib/plays": typeof lib_plays;
   "lib/rules": typeof lib_rules;
   mail: typeof mail;
   passwordReset: typeof passwordReset;
   robot: typeof robot;
   student: typeof student;
+  teacherHome: typeof teacherHome;
   users: typeof users;
 }>;
 

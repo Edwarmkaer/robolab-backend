@@ -30,6 +30,11 @@ export const rebuild = internalMutation({
     plays.sort((a, b) => a.createdAt - b.createdAt);
     for (const p of plays) await countPlay(ctx, p.createdAt, p.deviceId, p);
 
+    // Las partidas de alumnos con sesión se cuentan por su id, no por nombre, como al jugarlas.
+    const classPlays = await ctx.db.query("challengePlays").collect();
+    classPlays.sort((a, b) => a.createdAt - b.createdAt);
+    for (const p of classPlays) await countPlay(ctx, p.createdAt, `alumno:${p.studentId}`, p);
+
     const finished = (await ctx.db.query("attempts").collect()).filter((a) => a.finishedAt !== undefined);
     finished.sort((a, b) => a.finishedAt! - b.finishedAt!);
     for (const a of finished) await countFinishedAttempt(ctx, a.finishedAt!, a.studentId);

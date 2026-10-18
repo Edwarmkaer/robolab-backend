@@ -3,7 +3,8 @@ import { policyFor } from "../game/levels";
 import { type Program, move, repeat, usesOnly } from "../game/program";
 import { CHALLENGES, type Challenge, challengeById, challengesFor, nextChallenge } from "./challenges";
 import { checkPrediction, checkProgram, finalCell } from "./check";
-import { type ExploreProgress, emptyProgress, parseProgress, recordPlay, topicProgress } from "./progress";
+import { missionsFor } from "../lab/mission";
+import { type ExploreProgress, emptyProgress, openIds, parseProgress, recordPlay, topicProgress } from "./progress";
 
 const F = move("FORWARD");
 const L = move("TURN_LEFT");
@@ -114,12 +115,15 @@ describe("avance guardado en el dispositivo", () => {
     expect(p.records["primaria-casa"]).toMatchObject({ solved: true, plays: 4, best: { runs: 6, hints: 0 } });
   });
 
-  it("resume cuántos retos resolvió por tópico", () => {
+  it("resume cuántos retos y misiones resolvió por tópico (los retos de bloques de Primaria ya no se listan)", () => {
     let p = play(emptyProgress(), "primaria-casa", true, 2);
     p = play(p, "inicial-paseo", true, 1);
     p = play(p, "primaria-charco", false, 5);
-    expect(topicProgress(p, "tecnologia")).toEqual({ solved: 2, total: CHALLENGES.length });
-    expect(topicProgress(p, "artes")).toEqual({ solved: 0, total: 0 });
+    p = play(p, "primaria-tecnologia-materiales", true, 3);
+    const total = openIds("tecnologia").length;
+    expect(total).toBe(CHALLENGES.filter((c) => c.topic === "tecnologia" && c.level === "inicial").length + missionsFor("tecnologia").length);
+    expect(topicProgress(p, "tecnologia")).toEqual({ solved: 2, total });
+    expect(topicProgress(p, "artes")).toEqual({ solved: 0, total: missionsFor("artes").length });
   });
 
   it("lee con cuidado lo guardado: datos dañados o viejos empiezan de cero", () => {

@@ -5,6 +5,7 @@
  * competencias del CNEB.
  */
 import type { Challenge } from "../explore/challenges";
+import type { Mission } from "../lab/mission";
 
 export type CompetencyId = 22 | 23 | 25 | 28 | 29;
 
@@ -104,6 +105,21 @@ export function evidenceFor(challenge: Pick<Challenge, "kind" | "level">): reado
   }
 }
 
+const ARROWS: Evidence = { competency: 28, capacity: 3, how: "Arma un programa con flechas y lo ejecuta en el robot" };
+const ROUTE: Evidence = { competency: 25, capacity: 2, how: "Traza la ruta en el tablero: hacia dónde ir y cuántas casillas" };
+const BUDGET: Evidence = { competency: 23, capacity: 2, how: "Suma la energía de cada paso para no pasar el presupuesto" };
+const STATIONS: Evidence = { competency: 29, capacity: 1, how: "Organiza en qué orden visitar las estaciones antes de la meta" };
+
+/** Qué competencias evidencia una misión de Primaria: programa (28), ruta (25), energía (23) y estaciones (29). */
+export function evidenceForMission(): readonly Evidence[] {
+  return [ARROWS, ROUTE, BUDGET, STATIONS];
+}
+
+/** Lo que se juega en el modo abierto: un reto de bloques o una misión de Primaria. */
+export type Playable = Challenge | Mission;
+export const isMission = (item: Playable): item is Mission => "levels" in item;
+export const evidenceOf = (item: Playable): readonly Evidence[] => (isMission(item) ? evidenceForMission() : evidenceFor(item));
+
 /** Lo que evidencia la parte de juego de una evaluación de clase (llevar al robot a cada estrella). */
 export const EVALUATION_EVIDENCE: readonly Evidence[] = [PROGRAM, ORIENT];
 
@@ -111,17 +127,17 @@ export const capacityText = (e: Evidence): string => COMPETENCIES[e.competency].
 
 export type Coverage = {
   readonly competency: Competency;
-  /** Retos que la evidencian y cuántos de ellos están resueltos. */
+  /** Retos y misiones que la evidencian y cuántos de ellos están resueltos. */
   readonly total: number;
   readonly solved: number;
 };
 
-/** Cobertura por competencia: de los retos que la evidencian, cuántos resolvió. */
-export function coverage(challenges: readonly Challenge[], solvedIds: ReadonlySet<string>): readonly Coverage[] {
+/** Cobertura por competencia: de los retos y misiones que la evidencian, cuántos resolvió. */
+export function coverage(items: readonly Playable[], solvedIds: ReadonlySet<string>): readonly Coverage[] {
   const ids = Object.keys(COMPETENCIES).map(Number) as CompetencyId[];
   return ids
     .map((id) => {
-      const covering = challenges.filter((c) => evidenceFor(c).some((e) => e.competency === id));
+      const covering = items.filter((c) => evidenceOf(c).some((e) => e.competency === id));
       return { competency: COMPETENCIES[id], total: covering.length, solved: covering.filter((c) => solvedIds.has(c.id)).length };
     })
     .filter((c) => c.total > 0);
