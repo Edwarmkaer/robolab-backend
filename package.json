@@ -35,7 +35,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run test:firmware",
-    "test:firmware": "node scripts/test-firmware.mjs"
+    "test:firmware": "node --test scripts/bundle-firmware.test.mjs && node scripts/bundle-firmware.mjs --check && node scripts/test-firmware.mjs",
+    "firmware:bundle": "node scripts/bundle-firmware.mjs"
   },
   "dependencies": {
     "@auth/core": "0.41.3",

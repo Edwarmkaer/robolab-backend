@@ -6,16 +6,27 @@ El relé y el sketch wifi existentes siguen disponibles para instalaciones anter
 
 ## Cargar el firmware
 
-1. Abrir `firmware/robolab_bluetooth/robolab_bluetooth.ino` en Arduino IDE.
+1. Abrir **`firmware/robi/robi.ino`** en Arduino IDE. Es el código completo en
+   un solo archivo: configuración, motores, ojos, luces, sonidos y conexión.
+   Si lo copias, guardar el archivo como `robi.ino` dentro de una carpeta `robi`.
 2. Elegir **ESP32 Dev Module**, con Arduino-ESP32 **3.x** (compilado con 3.3.11).
    Este sketch usa `BluetoothSerial`, no BLE; requiere un ESP32 clásico.
 3. Instalar **Adafruit GFX Library**, **Adafruit SH110X**, **Adafruit SSD1306** y
    **FluxGarage RoboEyes** con sus dependencias desde el gestor de bibliotecas.
-4. Revisar `Config.h`, cargar y abrir el monitor a 115200 baudios. El dispositivo
+4. Revisar los pines y tiempos al inicio del mismo archivo, cargar y abrir el
+   monitor a 115200 baudios. El dispositivo
    se anuncia como **RoboLab**. Cambiar `ROBOT_NOMBRE` para distinguir varios robots.
 
 Se adaptó el `robi.ino` del equipo manteniendo su ejecutor, ojos, sonidos y LED.
 No hay credenciales de wifi ni claves de Convex en este firmware.
+No ejecuta una demostración al encender: queda esperando órdenes de la web.
+
+Para desarrollar se mantiene también la versión por módulos en
+`firmware/robolab_bluetooth/`. Su `.ino` necesita **todos los `.h` de esa carpeta**;
+copiar solo ese archivo provoca `Config.h: No such file or directory`.
+Después de cambiar un módulo, ejecutar `npm run firmware:bundle` para actualizar
+la versión completa. `npm run verify` comprueba que coincidan y prueba que un
+sketch exportado siga compilando al copiarlo sin sus cabeceras originales.
 
 | Elemento | Configuración inicial |
 |---|---|
@@ -86,7 +97,7 @@ compilador C++17). En Windows puede usarse MSYS2/WSL.
 Compilar desde terminal, con las bibliotecas instaladas:
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:esp32 firmware/robolab_bluetooth
+arduino-cli compile --fqbn esp32:esp32:esp32 firmware/robi
 ```
 
 Para aceptar en placa: verificar A/D/Z y ojos/sonidos; comprobar que AR se
