@@ -6,6 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import { type MutationCtx, mutation, query } from "./_generated/server";
 import { classroomLabel, requireOwnClassroom, requireTeacher } from "./lib/access";
 import { classPlays, studentsOf, visibleAssignments } from "./lib/classwork";
+import { removeLiveClassroom } from "./lib/liveCleanup";
 import { uniqueAccessCode, uniqueJoinCode } from "./lib/codes";
 import { LIMITS, cleanText } from "./lib/rules";
 import { educationLevel } from "./schema";
@@ -201,6 +202,7 @@ export const remove = mutation({
     const teacherId = await requireTeacher(ctx);
     await requireOwnClassroom(ctx, teacherId, classroomId);
 
+    await removeLiveClassroom(ctx, classroomId);
     for (const student of await studentsOf(ctx, classroomId)) {
       await deleteAll(
         ctx,

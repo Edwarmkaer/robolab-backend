@@ -2,6 +2,8 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { liveMode, liveStatus, liveProgress } from "./lib/liveValidators";
+
 export const educationLevel = v.union(
   v.literal("inicial"),
   v.literal("primaria"),
@@ -245,6 +247,20 @@ export default defineSchema({
   })
     .index("by_student", ["studentId", "createdAt"])
     .index("by_classroom_challenge", ["classroomId", "challengeId"]),
+
+  liveRooms: defineTable({
+    teacherId: v.id("users"), classroomId: v.id("classrooms"), mazeId: v.string(), mode: liveMode,
+    status: liveStatus, createdAt: v.number(), startedAt: v.union(v.number(), v.null()), closedAt: v.union(v.number(), v.null()),
+    participantCount: v.number(), finisherCount: v.number(),
+    shared: v.object({ ...liveProgress, revision: v.number() }),
+  }).index("by_teacherId", ["teacherId"]).index("by_classroomId", ["classroomId"]),
+  liveParticipants: defineTable({
+    roomId: v.id("liveRooms"), classroomId: v.id("classrooms"), studentId: v.id("students"), displayName: v.string(),
+    ...liveProgress, place: v.union(v.number(), v.null()), lastRunAt: v.union(v.number(), v.null()),
+  }).index("by_roomId", ["roomId"]).index("by_roomId_and_studentId", ["roomId", "studentId"]).index("by_classroomId", ["classroomId"]),
+  liveRunRequests: defineTable({
+    roomId: v.id("liveRooms"), classroomId: v.id("classrooms"), studentId: v.id("students"), requestId: v.string(),
+  }).index("by_roomId_and_studentId_and_requestId", ["roomId", "studentId", "requestId"]).index("by_classroomId", ["classroomId"]),
 
   emailDeliveries: defineTable({
     to: v.string(),
