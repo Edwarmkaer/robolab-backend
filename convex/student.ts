@@ -1,5 +1,6 @@
 /**
- * Portal del alumno: entra con su código, juega y responde.
+ * Portal del alumno: se une a su clase con el código de la clase y un apodo
+ * (o entra con el código personal que le dio el docente), juega y responde.
  *
  * El servidor es la autoridad del intento: simula cada programa que el
  * alumno ejecuta (y lo anota), revela la pregunta solo cuando el robot llega
