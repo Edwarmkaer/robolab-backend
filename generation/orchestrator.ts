@@ -89,7 +89,7 @@ async function timedProposal(
           } catch {
             /* Algunos transports cierran su stream al cancelar. */
           }
-          reject(new ProviderError("PROVIDER_TIMEOUT"));
+          reject(new ProviderError("PROVIDER_TIMEOUT", provider.name));
         }, timeoutMs);
       }),
     ]);
@@ -170,7 +170,7 @@ export async function generateActivity(
         const safe =
           error instanceof ProviderError
             ? error
-            : new ProviderError("PROVIDER_UNAVAILABLE");
+            : new ProviderError("PROVIDER_UNAVAILABLE", provider.name);
         errorCode = safe.code;
         if (errorCode === "PROVIDER_NOT_CONFIGURED") calls--;
         events.push({
@@ -219,7 +219,7 @@ export async function generateActivity(
       ...(errorCode ? { errorCode } : {}),
       ...(origin === "template_fallback"
         ? {
-            warning: `${new ProviderError(errorCode ?? "PROVIDER_UNAVAILABLE").message} Se ofrece una plantilla verificada; revisa su objetivo.${fallbackSatisfiesConstraints ? "" : " No cumple todas las restricciones solicitadas."}`,
+            warning: `${new ProviderError(errorCode ?? "PROVIDER_UNAVAILABLE", provider.name).message} Se ofrece una plantilla verificada; revisa su objetivo.${fallbackSatisfiesConstraints ? "" : " No cumple todas las restricciones solicitadas."}`,
           }
         : {}),
     });

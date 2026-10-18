@@ -2,7 +2,7 @@ import type { Mission, ValidationIssue } from "../domain/mission/contracts";
 
 import type { MissionFamily } from "../domain/mission/mechanics";
 
-export type ProviderName = "groq" | "anthropic" | "ollama";
+export type ProviderName = "groq" | "anthropic" | "gemini" | "ollama";
 export type GenerationRequest = {
   readonly objective: string;
   readonly family?: MissionFamily;
