@@ -3,7 +3,8 @@
  * la lectura desconfía de lo guardado: si está dañado o es de otra versión,
  * se empieza de cero en vez de romper la pantalla.
  */
-import { CHALLENGES, type Topic } from "./challenges";
+import type { EducationLevel } from "../game/levels";
+import { CHALLENGES, type Challenge, type Topic } from "./challenges";
 
 export type PlayResult = {
   readonly solved: boolean;
@@ -28,6 +29,20 @@ export type ExploreProgress = {
 
 export const emptyProgress = (): ExploreProgress => ({ version: 1, records: {} });
 
+/**
+ * Lo que se lista en el modo abierto: los retos de bloques de Inicial. Los de
+ * Primaria que quedan en `CHALLENGES` son legado y no se listan ni cuentan.
+ */
+export const openChallenges = (): readonly Challenge[] => CHALLENGES.filter((c) => c.level !== "primaria");
+
+/** Algo jugable del modo abierto que cuenta para el avance. */
+export type CatalogItem = Pick<Challenge, "id" | "topic" | "level">;
+
+export const catalog = (): readonly CatalogItem[] => openChallenges();
+
+export const catalogFor = (topic: Topic, level?: EducationLevel): readonly CatalogItem[] =>
+  catalog().filter((item) => item.topic === topic && (level === undefined || item.level === level));
+
 const better = (a: Omit<PlayResult, "solved">, b: Omit<PlayResult, "solved">) =>
   a.hints - b.hints || a.runs - b.runs || a.ms - b.ms;
 
@@ -48,10 +63,19 @@ export function recordPlay(progress: ExploreProgress, challengeId: string, resul
   return { ...progress, records: { ...progress.records, [challengeId]: record } };
 }
 
-export function topicProgress(progress: ExploreProgress, topic: Topic): { solved: number; total: number } {
-  const ids = CHALLENGES.filter((c) => c.topic === topic).map((c) => c.id);
-  return { solved: ids.filter((id) => progress.records[id]?.solved).length, total: ids.length };
-}
+export type ProgressSummary = { readonly solved: number; readonly total: number };
+
+const summarize = (progress: ExploreProgress, items: readonly CatalogItem[]): ProgressSummary => ({
+  solved: items.filter((item) => progress.records[item.id]?.solved).length,
+  total: items.length,
+});
+
+/** Cuántos resolvió de todo lo que hay en un tópico (la tarjeta de inicio y "Mi avance"). */
+export const topicProgress = (progress: ExploreProgress, topic: Topic): ProgressSummary => summarize(progress, catalogFor(topic));
+
+/** Cuántos resolvió de un tópico en un nivel (la tarjeta de nivel). */
+export const levelProgress = (progress: ExploreProgress, topic: Topic, level: EducationLevel): ProgressSummary =>
+  summarize(progress, catalogFor(topic, level));
 
 const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
 
@@ -73,7 +97,7 @@ export function parseProgress(raw: string | null): ExploreProgress {
   try {
     const data: unknown = JSON.parse(raw);
     if (typeof data !== "object" || data === null || (data as { version?: unknown }).version !== 1) return emptyProgress();
-    const known = new Set(CHALLENGES.map((c) => c.id));
+    const known = new Set(CHALLENGES.map((c) => c.id)); // incluye el legado: lo ya jugado no se pierde
     const records: Record<string, ChallengeRecord> = {};
     for (const [id, value] of Object.entries((data as { records?: object }).records ?? {})) {
       const record = parseRecord(value);
