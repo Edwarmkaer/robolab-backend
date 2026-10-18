@@ -22,9 +22,9 @@ export async function assignmentsOf(ctx: QueryCtx, classroomId: Id<"classrooms">
   return all.sort((a, b) => a.createdAt - b.createdAt);
 }
 
-/** Los retos que los alumnos ya ven: todos menos los borradores. */
+/** Los retos que los alumnos ya ven: todos menos los borradores y los que el docente cerró. */
 export async function visibleAssignments(ctx: QueryCtx, classroomId: Id<"classrooms">): Promise<Doc<"assignments">[]> {
-  return (await assignmentsOf(ctx, classroomId)).filter((a) => a.visibility !== "draft");
+  return (await assignmentsOf(ctx, classroomId)).filter((a) => a.visibility !== "draft" && a.closedAt === undefined);
 }
 
 /** Todas las partidas de la clase, en el formato del dominio. */

@@ -213,6 +213,8 @@ export default defineSchema({
     visibility: v.union(v.literal("public"), v.literal("class"), v.literal("draft")),
     teacherId: v.id("users"),
     createdAt: v.number(),
+    // Cuando el docente lo cierra deja de verse para los alumnos; sus resultados se conservan.
+    closedAt: v.optional(v.number()),
   })
     .index("by_classroom", ["classroomId"])
     .index("by_teacher", ["teacherId"]),
