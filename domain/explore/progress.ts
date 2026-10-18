@@ -3,7 +3,8 @@
  * la lectura desconfía de lo guardado: si está dañado o es de otra versión,
  * se empieza de cero en vez de romper la pantalla.
  */
-import { MISSIONS, missionsFor } from "../lab/mission";
+import type { EducationLevel } from "../game/levels";
+import { MISSIONS, type Mission } from "../lab/mission";
 import { CHALLENGES, type Challenge, type Topic } from "./challenges";
 
 export type PlayResult = {
@@ -29,6 +30,25 @@ export type ExploreProgress = {
 
 export const emptyProgress = (): ExploreProgress => ({ version: 1, records: {} });
 
+/**
+ * Lo que se juega en el modo abierto: los retos de bloques de Inicial y las
+ * misiones de Primaria. Los retos de bloques de Primaria que quedan en
+ * `CHALLENGES` son legado: no se listan ni cuentan en el avance.
+ */
+export const openChallenges = (): readonly Challenge[] => CHALLENGES.filter((c) => c.level !== "primaria");
+
+/** Algo jugable del modo abierto que cuenta para el avance: un reto de bloques (Inicial) o una misión (Primaria). */
+export type CatalogItem = Challenge | Mission;
+
+/** Todo lo que se lista: primero los retos de bloques y luego las misiones, cada grupo en su orden. */
+export const catalog = (): readonly CatalogItem[] => [...openChallenges(), ...MISSIONS];
+
+export const catalogFor = (topic: Topic, level?: EducationLevel): readonly CatalogItem[] =>
+  catalog().filter((item) => item.topic === topic && (level === undefined || item.level === level));
+
+/** Ids de lo que se puede jugar en un tópico, en el orden de las listas. */
+export const openIds = (topic: Topic): string[] => catalogFor(topic).map((item) => item.id);
+
 const better = (a: Omit<PlayResult, "solved">, b: Omit<PlayResult, "solved">) =>
   a.hints - b.hints || a.runs - b.runs || a.ms - b.ms;
 
@@ -49,25 +69,19 @@ export function recordPlay(progress: ExploreProgress, challengeId: string, resul
   return { ...progress, records: { ...progress.records, [challengeId]: record } };
 }
 
-/**
- * Lo que se juega en el modo abierto: los retos de bloques de Inicial y las
- * misiones de Primaria. Los retos de bloques de Primaria ya no se listan (ese
- * nivel juega misiones), así que no cuentan en el avance.
- */
-export const openChallenges = (): readonly Challenge[] => CHALLENGES.filter((c) => c.level !== "primaria");
+export type ProgressSummary = { readonly solved: number; readonly total: number };
 
-/** Ids de lo que se puede jugar en un tópico, en el orden de las listas. */
-export const openIds = (topic: Topic): string[] => [
-  ...openChallenges()
-    .filter((c) => c.topic === topic)
-    .map((c) => c.id),
-  ...missionsFor(topic).map((m) => m.id),
-];
+const summarize = (progress: ExploreProgress, items: readonly CatalogItem[]): ProgressSummary => ({
+  solved: items.filter((item) => progress.records[item.id]?.solved).length,
+  total: items.length,
+});
 
-export function topicProgress(progress: ExploreProgress, topic: Topic): { solved: number; total: number } {
-  const ids = openIds(topic);
-  return { solved: ids.filter((id) => progress.records[id]?.solved).length, total: ids.length };
-}
+/** Cuántos resolvió de todo lo que hay en un tópico, retos y misiones (la tarjeta de inicio y "Mi avance"). */
+export const topicProgress = (progress: ExploreProgress, topic: Topic): ProgressSummary => summarize(progress, catalogFor(topic));
+
+/** Cuántos resolvió de un tópico en un nivel (la tarjeta de nivel). */
+export const levelProgress = (progress: ExploreProgress, topic: Topic, level: EducationLevel): ProgressSummary =>
+  summarize(progress, catalogFor(topic, level));
 
 const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
 
@@ -89,7 +103,7 @@ export function parseProgress(raw: string | null): ExploreProgress {
   try {
     const data: unknown = JSON.parse(raw);
     if (typeof data !== "object" || data === null || (data as { version?: unknown }).version !== 1) return emptyProgress();
-    const known = new Set([...CHALLENGES.map((c) => c.id), ...MISSIONS.map((m) => m.id)]);
+    const known = new Set([...CHALLENGES.map((c) => c.id), ...MISSIONS.map((m) => m.id)]); // incluye el legado: lo ya jugado no se pierde
     const records: Record<string, ChallengeRecord> = {};
     for (const [id, value] of Object.entries((data as { records?: object }).records ?? {})) {
       const record = parseRecord(value);

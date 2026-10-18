@@ -4,10 +4,10 @@
  * Los textos son los oficiales; la numeración es la de la lista de 31
  * competencias del CNEB.
  */
-import type { Challenge } from "../explore/challenges";
+import type { Challenge, Topic } from "../explore/challenges";
 import type { Mission } from "../lab/mission";
 
-export type CompetencyId = 22 | 23 | 25 | 28 | 29;
+export type CompetencyId = 20 | 22 | 23 | 25 | 28 | 29;
 
 export type Competency = {
   readonly id: CompetencyId;
@@ -17,6 +17,18 @@ export type Competency = {
 };
 
 export const COMPETENCIES: Record<CompetencyId, Competency> = {
+  20: {
+    id: 20,
+    area: "Ciencia y Tecnología",
+    name: "Indaga mediante métodos científicos para construir sus conocimientos",
+    capacities: [
+      "Problematiza situaciones para hacer indagación",
+      "Diseña estrategias para hacer indagación",
+      "Genera y registra datos o información",
+      "Analiza datos e información",
+      "Evalúa y comunica el proceso y resultados de su indagación",
+    ],
+  },
   22: {
     id: 22,
     area: "Ciencia y Tecnología",
@@ -87,22 +99,42 @@ const PREDICT: Evidence = { competency: 25, capacity: 1, how: "Lee un programa y
 const DEBUG: Evidence = { competency: 29, capacity: 2, how: "Encuentra el paso que falla y lo corrige" };
 const PLAN: Evidence = { competency: 29, capacity: 1, how: "Planea el orden de las paradas antes de ejecutar" };
 const COUNT: Evidence = { competency: 23, capacity: 2, how: "Cuenta pasos repetidos y los expresa con Repetir × n" };
+const COUNT_STEPS: Evidence = { competency: 23, capacity: 2, how: "Cuenta las casillas de cada tramo y usa solo los bloques necesarios" };
 const DESIGN: Evidence = { competency: 22, capacity: 1, how: "Busca la solución con menos bloques que cumpla el reto" };
 
-/** Qué competencias evidencia un reto del modo abierto, según su tipo. */
-export function evidenceFor(challenge: Pick<Challenge, "kind" | "level">): readonly Evidence[] {
-  switch (challenge.kind) {
-    case "sequence":
-      return [PROGRAM, ORIENT];
-    case "predict":
-      return [PREDICT, PROGRAM];
-    case "fix":
-      return [PROGRAM, ORIENT, DEBUG];
-    case "stops":
-      return [PROGRAM, ORIENT, PLAN];
-    case "efficient":
-      return challenge.level === "inicial" ? [PROGRAM, COUNT] : [PROGRAM, COUNT, DESIGN];
-  }
+/** Lo que agrega la ambientación de cada tópico, según lo que el niño hace en ese tipo de reto. */
+const TOPIC_EVIDENCE: Record<Exclude<Topic, "tecnologia" | "artes">, (kind: Challenge["kind"]) => Evidence> = {
+  ciencia: (kind) =>
+    kind === "predict"
+      ? { competency: 20, capacity: 3, how: "Lee el programa como si fueran datos y deduce dónde terminará el robot" }
+      : kind === "fix"
+        ? { competency: 20, capacity: 4, how: "Revisa el resultado del experimento y corrige el procedimiento" }
+        : { competency: 20, capacity: 1, how: "Planea los pasos del experimento antes de ejecutarlo" },
+  ingenieria: () => ({ competency: 22, capacity: 2, how: "Prueba el plan en el taller y comprueba que funciona" }),
+  matematicas: () => ({ competency: 23, capacity: 0, how: "Cuenta las casillas y las convierte en bloques de Avanzar" }),
+};
+
+/** Qué competencias evidencia un reto del modo abierto, según su tipo y, si se indica, su tópico. */
+export function evidenceFor(challenge: Pick<Challenge, "kind" | "level"> & { readonly topic?: Topic }): readonly Evidence[] {
+  const byKind = (): Evidence[] => {
+    switch (challenge.kind) {
+      case "sequence":
+        return [PROGRAM, ORIENT];
+      case "predict":
+        return [PREDICT, PROGRAM];
+      case "fix":
+        return [PROGRAM, ORIENT, DEBUG];
+      case "stops":
+        return [PROGRAM, ORIENT, PLAN];
+      case "efficient":
+        return challenge.level === "inicial" ? [PROGRAM, COUNT_STEPS] : [PROGRAM, COUNT, DESIGN];
+    }
+  };
+  const base = byKind();
+  if (!challenge.topic || challenge.topic === "tecnologia" || challenge.topic === "artes") return base;
+  const extra = TOPIC_EVIDENCE[challenge.topic](challenge.kind);
+  // Una misma capacidad no se lista dos veces.
+  return base.some((e) => e.competency === extra.competency && e.capacity === extra.capacity) ? base : [...base, extra];
 }
 
 const ARROWS: Evidence = { competency: 28, capacity: 3, how: "Arma un programa con flechas y lo ejecuta en el robot" };

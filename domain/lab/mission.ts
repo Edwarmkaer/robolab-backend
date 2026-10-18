@@ -11,6 +11,7 @@
  * como JSON, así que `parseMission` las revisa cada vez que se leen.
  */
 import { TOPICS, type Topic } from "../explore/challenges";
+import { MISSION_ORDER, MORE_MISSIONS } from "./missions";
 
 export type Dir = "U" | "D" | "L" | "R";
 export type Cell = readonly [row: number, col: number]; // 0..5
@@ -159,8 +160,9 @@ export function parseMission(input: unknown): Mission {
 }
 
 // ---------- Contenido: misiones del modo abierto ----------
-// Los tableros se repiten entre tópicos a propósito: lo que cambia es la
-// historia. Todas se validan con `validate()` en las pruebas.
+// Aquí están las cinco del prototipo; las demás viven en `missions.ts`. En las
+// del prototipo los tableros se repiten entre tópicos a propósito: lo que cambia
+// es la historia. Todas se validan con `validate()` en las pruebas.
 
 /** Tablero del prototipo (RoboLab_Aula_Multigrado_MVP.html). */
 const BOARD_RUTA = {
@@ -217,7 +219,7 @@ const mission = (
   };
 };
 
-export const MISSIONS: readonly Mission[] = [
+const CORE_MISSIONS: readonly Mission[] = [
   mission(BOARD_RUTA, {
     id: "primaria-tecnologia-materiales",
     title: "Ruta de materiales",
@@ -281,6 +283,14 @@ export const MISSIONS: readonly Mission[] = [
     ],
   }),
 ];
+
+/**
+ * Todas las misiones del modo abierto: las del prototipo y las de `missions.ts`,
+ * por tópico y de más fácil a más difícil (así se listan y así avanza "Siguiente").
+ */
+export const MISSIONS: readonly Mission[] = [...CORE_MISSIONS, ...MORE_MISSIONS].sort(
+  (a, b) => MISSION_ORDER.indexOf(a.id) - MISSION_ORDER.indexOf(b.id),
+);
 
 export const missionById = (id: string): Mission | undefined => MISSIONS.find((m) => m.id === id);
 

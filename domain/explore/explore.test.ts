@@ -1,22 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { policyFor } from "../game/levels";
-import { type Program, move, repeat, usesOnly } from "../game/program";
-import { CHALLENGES, type Challenge, challengeById, challengesFor, nextChallenge } from "./challenges";
+import { EDUCATION_LEVELS, policyFor } from "../game/levels";
+import { type Program, compile, countBlocks, move, repeat, usesOnly } from "../game/program";
+import { simulate } from "../game/simulator";
+import { shortestSolution } from "../game/solve";
+import { CHALLENGES, type Challenge, TOPICS, type Topic, challengeById, challengesFor, nextChallenge } from "./challenges";
 import { checkPrediction, checkProgram, finalCell } from "./check";
-import { missionsFor } from "../lab/mission";
-import { type ExploreProgress, emptyProgress, openIds, parseProgress, recordPlay, topicProgress } from "./progress";
+import { MISSIONS } from "../lab/mission";
+import { type ExploreProgress, catalogFor, emptyProgress, levelProgress, openChallenges, openIds, parseProgress, recordPlay, topicProgress } from "./progress";
 
 const F = move("FORWARD");
 const L = move("TURN_LEFT");
 const R = move("TURN_RIGHT");
 
-/** Una solución correcta por reto (los de predecir llevan la casilla). */
-const SOLUTIONS: Record<string, Program | { row: number; col: number }> = {
-  "inicial-paseo": [F, F, F],
-  "inicial-gira": [F, R, F, F, L, F],
-  "inicial-charquito": [L, F, R, F, F, R, F],
-  "inicial-donde": { row: 0, col: 1 },
-  "inicial-arregla": [F, F, F, F],
+/** Retos de bloques por tópico: los de Inicial del Figma (Primaria se juega con misiones). */
+const BLOCK_CHALLENGES: Record<Topic, number> = { ciencia: 6, tecnologia: 6, ingenieria: 5, artes: 5, matematicas: 6 };
+/** Misiones de Primaria por tópico (el Figma M8 suma 12, 12, 10, 9 y 11 entre ambos niveles). */
+const MISSION_COUNT: Record<Topic, number> = { ciencia: 6, tecnologia: 6, ingenieria: 5, artes: 4, matematicas: 5 };
+const TOTAL = Object.fromEntries(TOPICS.map((t) => [t.id, BLOCK_CHALLENGES[t.id] + MISSION_COUNT[t.id]])) as Record<Topic, number>;
+
+/**
+ * Los seis retos de bloques de Primaria (Tecnología) son legado: ya no se listan, pero siguen
+ * resolviéndose (enlaces y partidas viejas). Su solución usa Repetir, que la búsqueda no arma.
+ */
+const LEGACY_SOLUTIONS: Record<string, Program | { row: number; col: number }> = {
   "primaria-casa": [F, F, R, F, F, L, F],
   "primaria-charco": [F, L, F, R, F, F, R, F],
   "primaria-donde": { row: 1, col: 2 },
@@ -32,20 +38,51 @@ const byId = (id: string): Challenge => {
 };
 
 describe("catálogo de retos", () => {
-  it("cada reto tiene id único, tres pistas y una solución que funciona", () => {
+  it("cada reto tiene id único, tres pistas, historia, habilidad y minutos", () => {
     expect(new Set(CHALLENGES.map((c) => c.id)).size).toBe(CHALLENGES.length);
+    expect(new Set(CHALLENGES.map((c) => c.map.id)).size).toBe(CHALLENGES.length);
     for (const c of CHALLENGES) {
       expect(c.hints, c.id).toHaveLength(3);
-      const solution = SOLUTIONS[c.id];
-      expect(solution, `falta la solución de ${c.id}`).toBeDefined();
-      if (c.kind === "predict") {
-        expect(checkPrediction(c, solution as { row: number; col: number }).ok, c.id).toBe(true);
-      } else {
-        const program = solution as Program;
-        expect(usesOnly(program, policyFor(c.level).palette), c.id).toBe(true);
-        expect(checkProgram(c, program).result, c.id).toMatchObject({ ok: true });
-      }
+      for (const hint of c.hints) expect(hint.trim().length, c.id).toBeGreaterThan(0);
+      expect(c.story.trim().length, c.id).toBeGreaterThan(10);
+      expect(c.skill.trim().length, c.id).toBeGreaterThan(0);
+      expect(c.minutes, c.id).toMatch(/^\d+-\d+ min$/);
+      expect(c.title.trim().length, c.id).toBeGreaterThan(0);
     }
+  });
+
+  it("todo reto se puede resolver con los bloques de su nivel (búsqueda en anchura sobre el mapa)", () => {
+    for (const c of CHALLENGES) {
+      const palette = policyFor(c.level).palette;
+      if (c.kind === "predict") {
+        // El programa dado nunca se sale del camino: la casilla final existe y se puede tocar.
+        const run = simulate(c.map, compile(c.given));
+        expect(run.outcome.kind, c.id).not.toBe("OFF_PATH");
+        const answer = finalCell(c, c.given);
+        expect(answer, c.id).not.toEqual(c.map.start);
+        expect(checkPrediction(c, answer).ok, c.id).toBe(true);
+        continue;
+      }
+      const solution = shortestSolution(c.map, palette);
+      expect(solution, `${c.id} no tiene solución`).not.toBeNull();
+      const legacy = LEGACY_SOLUTIONS[c.id];
+      const program: Program = legacy ? (legacy as Program) : solution!.map(move);
+      expect(usesOnly(program, palette), c.id).toBe(true);
+      // Una solución cumple el reto: paradas, y el tope de bloques en los de eficiencia.
+      expect(checkProgram(c, program).result, c.id).toMatchObject({ ok: true });
+      if (c.kind === "efficient") expect(countBlocks(program), c.id).toBeLessThanOrEqual(c.maxBlocks);
+    }
+  });
+
+  it("los retos de Primaria que quedan son el legado de Tecnología y su solución se conoce", () => {
+    const legacy = CHALLENGES.filter((c) => c.level === "primaria");
+    expect(legacy.map((c) => c.id).sort()).toEqual(Object.keys(LEGACY_SOLUTIONS).sort());
+    expect(legacy.every((c) => c.topic === "tecnologia")).toBe(true);
+    const where = byId("primaria-donde");
+    expect(where.kind === "predict" && checkPrediction(where, LEGACY_SOLUTIONS["primaria-donde"] as { row: number; col: number }).ok).toBe(true);
+    // No se listan: ni en el catálogo ni en el avance.
+    expect(openChallenges().some((c) => c.level === "primaria")).toBe(false);
+    expect(catalogFor("tecnologia", "primaria").some((item) => item.id in LEGACY_SOLUTIONS)).toBe(false);
   });
 
   it("los programas dados solo usan bloques de su nivel, y el de corregir empieza con error", () => {
@@ -55,39 +92,68 @@ describe("catálogo de retos", () => {
     }
   });
 
-  it("ordena por nivel y sabe cuál sigue", () => {
-    const primaria = challengesFor("tecnologia", "primaria");
-    expect(primaria.map((c) => c.difficulty)).toEqual([...primaria.map((c) => c.difficulty)].sort());
-    expect(nextChallenge(primaria[0]!)?.id).toBe(primaria[1]!.id);
-    expect(nextChallenge(primaria.at(-1)!)).toBeUndefined();
-    expect(challengesFor("ciencia", "inicial")).toEqual([]);
+  it("tiene las cantidades del Figma (M8) por tópico y nivel: bloques en Inicial y misiones en Primaria", () => {
+    for (const t of TOPICS) {
+      expect(t.available, t.id).toBe(true);
+      expect(challengesFor(t.id, "inicial").length, t.id).toBe(BLOCK_CHALLENGES[t.id]);
+      expect(catalogFor(t.id, "inicial").length, t.id).toBe(BLOCK_CHALLENGES[t.id]);
+      expect(catalogFor(t.id, "primaria").length, t.id).toBe(MISSION_COUNT[t.id]);
+      expect(catalogFor(t.id, "primaria").every((item) => item.id.startsWith("primaria-")), t.id).toBe(true);
+      expect(catalogFor(t.id, "secundaria"), t.id).toEqual([]);
+      expect(catalogFor(t.id).length, t.id).toBe(TOTAL[t.id]);
+    }
+    expect(TOTAL).toEqual({ ciencia: 12, tecnologia: 12, ingenieria: 10, artes: 9, matematicas: 11 });
+    expect(openChallenges()).toHaveLength(28);
+    expect(MISSIONS).toHaveLength(26);
+    expect(CHALLENGES).toHaveLength(28 + Object.keys(LEGACY_SOLUTIONS).length);
+  });
+
+  it("cada tópico de Inicial mezcla tipos: al menos secuencia, paradas y corregir", () => {
+    for (const t of TOPICS) {
+      const kinds = new Set(challengesFor(t.id, "inicial").map((c) => c.kind));
+      expect([...kinds], t.id).toEqual(expect.arrayContaining(["sequence", "stops", "fix"]));
+    }
+  });
+
+  it("ordena por dificultad dentro de cada tópico y nivel, y sabe cuál sigue", () => {
+    for (const t of TOPICS) {
+      for (const level of EDUCATION_LEVELS) {
+        const list = challengesFor(t.id, level);
+        expect(list.map((c) => c.difficulty), `${t.id} ${level}`).toEqual([...list.map((c) => c.difficulty)].sort());
+        if (list.length === 0) continue;
+        expect(nextChallenge(list[0]!)?.id).toBe(list[1]!.id);
+        expect(nextChallenge(list.at(-1)!)).toBeUndefined();
+      }
+    }
   });
 });
 
 describe("revisión de intentos", () => {
   it("dice en qué paso se salió del camino", () => {
-    const fix = byId("primaria-arregla");
-    if (fix.kind !== "fix") throw new Error("primaria-arregla debería ser de corregir");
+    const fix = byId("inicial-ciencia-arregla");
+    if (fix.kind !== "fix") throw new Error("inicial-ciencia-arregla debería ser de corregir");
     const { result } = checkProgram(fix, fix.given);
     expect(result).toMatchObject({ ok: false, reason: "OFF_PATH", step: 4 });
     expect(result.message).toMatch(/paso 4, al avanzar/);
   });
 
   it("no acepta llegar a la estrella sin pasar por todas las paradas", () => {
-    // Llega por arriba y baja directo, sin volver por la segunda bandera.
-    const map = byId("primaria-paradas");
-    const shortcut: Program = [repeat(4, [F]), R, repeat(2, [F])];
-    expect(checkProgram(map, shortcut).result).toMatchObject({ ok: false, reason: "INCOMPLETE" });
-    const custom = { ...map, map: { ...map.map, stops: [...map.map.stops, { row: 9, col: 9 }] } };
-    expect(checkProgram(custom, SOLUTIONS["primaria-paradas"] as Program).result).toMatchObject({
-      ok: false,
-      reason: "MISSED_STOPS",
-    });
+    // Atajo por el medio del laboratorio: llega a la estrella sin tocar ninguna muestra.
+    const map = byId("inicial-ciencia-muestras");
+    const shortcut: Program = [F, R, F, F, R, F];
+    expect(checkProgram(map, shortcut).result).toMatchObject({ ok: false, reason: "MISSED_STOPS" });
+    expect(checkProgram(map, shortcut).result.message).toMatch(/2 banderas/);
+    // Por el taller, un atajo que toca solo un engranaje.
+    const gears = byId("inicial-ingenieria-engranajes");
+    const oneStop: Program = [F, R, F, F, L, F, F];
+    expect(checkProgram(gears, oneStop).result).toMatchObject({ ok: false, reason: "MISSED_STOPS" });
+    expect(checkProgram(gears, oneStop).result.message).toMatch(/una bandera/);
   });
 
   it("en eficiencia, llegar con demasiados bloques no basta", () => {
-    const longWay: Program = [F, R, F, L, F, R, F, L, F];
-    expect(checkProgram(byId("primaria-menos"), longWay).result).toMatchObject({ ok: false, reason: "TOO_MANY_BLOCKS" });
+    const wobbly: Program = [F, F, F, R, L, R, F, F];
+    expect(checkProgram(byId("inicial-matematicas-justos"), wobbly).result).toMatchObject({ ok: false, reason: "TOO_MANY_BLOCKS" });
+    expect(checkProgram(byId("inicial-matematicas-justos"), [F, F, F, R, F, F]).result).toMatchObject({ ok: true });
   });
 
   it("rechaza bloques que el nivel no tiene", () => {
@@ -95,10 +161,17 @@ describe("revisión de intentos", () => {
   });
 
   it("en predecir, compara con donde realmente termina", () => {
-    const c = byId("primaria-donde");
-    expect(c.kind === "predict" && finalCell(c, c.given)).toEqual({ row: 1, col: 2 });
-    expect(checkPrediction(c, { row: 1, col: 3 })).toMatchObject({ ok: false, reason: "WRONG_CELL" });
+    const c = byId("inicial-ciencia-donde");
+    expect(c.kind === "predict" && finalCell(c, c.given)).toEqual({ row: 1, col: 0 });
+    expect(checkPrediction(c, { row: 1, col: 1 })).toMatchObject({ ok: false, reason: "WRONG_CELL" });
     expect(() => checkPrediction(byId("inicial-paseo"), { row: 0, col: 0 })).toThrow();
+  });
+
+  it("los giros al revés de la galería se detectan al bajar", () => {
+    const art = byId("inicial-artes-arregla");
+    if (art.kind !== "fix") throw new Error("inicial-artes-arregla debería ser de corregir");
+    expect(checkProgram(art, art.given).result).toMatchObject({ ok: false, reason: "OFF_PATH", step: 5 });
+    expect(checkProgram(art, [F, R, F, L, F, R, F]).result).toMatchObject({ ok: true });
   });
 });
 
@@ -107,33 +180,48 @@ describe("avance guardado en el dispositivo", () => {
     recordPlay(p, id, { solved, runs, hints, ms }, 1000);
 
   it("guarda el mejor resultado: menos pistas, luego menos intentos y luego menos tiempo", () => {
-    let p = play(emptyProgress(), "primaria-casa", false, 3);
-    expect(p.records["primaria-casa"]).toMatchObject({ solved: false, plays: 1 });
-    p = play(p, "primaria-casa", true, 4, 2);
-    p = play(p, "primaria-casa", true, 6, 0);
-    p = play(p, "primaria-casa", true, 2, 1);
-    expect(p.records["primaria-casa"]).toMatchObject({ solved: true, plays: 4, best: { runs: 6, hints: 0 } });
+    let p = play(emptyProgress(), "inicial-ciencia-probeta", false, 3);
+    expect(p.records["inicial-ciencia-probeta"]).toMatchObject({ solved: false, plays: 1 });
+    p = play(p, "inicial-ciencia-probeta", true, 4, 2);
+    p = play(p, "inicial-ciencia-probeta", true, 6, 0);
+    p = play(p, "inicial-ciencia-probeta", true, 2, 1);
+    expect(p.records["inicial-ciencia-probeta"]).toMatchObject({ solved: true, plays: 4, best: { runs: 6, hints: 0 } });
   });
 
-  it("resume cuántos retos y misiones resolvió por tópico (los retos de bloques de Primaria ya no se listan)", () => {
-    let p = play(emptyProgress(), "primaria-casa", true, 2);
+  it("resume cuántos retos y misiones resolvió por tópico y por nivel", () => {
+    let p = play(emptyProgress(), "inicial-ciencia-probeta", true, 2);
+    p = play(p, "inicial-ciencia-lupa", true, 1);
     p = play(p, "inicial-paseo", true, 1);
-    p = play(p, "primaria-charco", false, 5);
-    p = play(p, "primaria-tecnologia-materiales", true, 3);
-    const total = openIds("tecnologia").length;
-    expect(total).toBe(CHALLENGES.filter((c) => c.topic === "tecnologia" && c.level === "inicial").length + missionsFor("tecnologia").length);
-    expect(topicProgress(p, "tecnologia")).toEqual({ solved: 2, total });
-    expect(topicProgress(p, "artes")).toEqual({ solved: 0, total: missionsFor("artes").length });
+    p = play(p, "inicial-ciencia-derrame", false, 5);
+    p = play(p, "primaria-ciencia-huerto", true, 3);
+    expect(topicProgress(p, "ciencia")).toEqual({ solved: 3, total: TOTAL.ciencia });
+    expect(topicProgress(p, "tecnologia")).toEqual({ solved: 1, total: TOTAL.tecnologia });
+    expect(topicProgress(p, "artes")).toEqual({ solved: 0, total: TOTAL.artes });
+    expect(levelProgress(p, "ciencia", "inicial")).toEqual({ solved: 2, total: 6 });
+    expect(levelProgress(p, "ciencia", "primaria")).toEqual({ solved: 1, total: 6 });
+    expect(levelProgress(p, "ciencia", "secundaria")).toEqual({ solved: 0, total: 0 });
+    expect(openIds("ciencia")).toHaveLength(TOTAL.ciencia);
+  });
+
+  it("un reto de bloques de Primaria jugado antes sigue guardado pero ya no cuenta en el avance", () => {
+    const p = play(emptyProgress(), "primaria-casa", true, 2);
+    expect(parseProgress(JSON.stringify(p)).records["primaria-casa"]).toMatchObject({ solved: true });
+    expect(topicProgress(p, "tecnologia")).toEqual({ solved: 0, total: TOTAL.tecnologia });
+  });
+
+  it("guarda y vuelve a leer lo jugado en una misión", () => {
+    const p = play(emptyProgress(), "primaria-tecnologia-materiales", true, 3);
+    expect(parseProgress(JSON.stringify(p)).records["primaria-tecnologia-materiales"]).toMatchObject({ solved: true, plays: 1 });
   });
 
   it("lee con cuidado lo guardado: datos dañados o viejos empiezan de cero", () => {
     expect(parseProgress(null)).toEqual(emptyProgress());
     expect(parseProgress("{malo")).toEqual(emptyProgress());
     expect(parseProgress(JSON.stringify({ version: 99 }))).toEqual(emptyProgress());
-    const saved = play(emptyProgress(), "primaria-casa", true, 2);
+    const saved = play(emptyProgress(), "inicial-ciencia-probeta", true, 2);
     expect(parseProgress(JSON.stringify(saved))).toEqual(saved);
     // Un reto que ya no existe se ignora.
-    const withGhost = { ...saved, records: { ...saved.records, fantasma: saved.records["primaria-casa"] } };
+    const withGhost = { ...saved, records: { ...saved.records, fantasma: saved.records["inicial-ciencia-probeta"] } };
     expect(parseProgress(JSON.stringify(withGhost)).records).not.toHaveProperty("fantasma");
   });
 });

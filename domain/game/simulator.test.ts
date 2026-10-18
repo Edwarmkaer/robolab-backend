@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { feedbackFor } from "./feedback";
 import { EDUCATION_LEVELS, policyFor } from "./levels";
-import { type GameMap, MapError, cellKey, parseMap } from "./map";
-import { type Command, COMMANDS } from "./program";
+import { MapError, parseMap } from "./map";
 import { simulate } from "./simulator";
+import { shortestSolution } from "./solve";
 
 const straight = parseMap("recta", ["S..G"], 90);
 const corner = parseMap("esquina", ["S.#", "#.#", "#.G"], 90);
@@ -91,30 +91,6 @@ describe("parseMap", () => {
     expect(run.steps.at(-1)?.state.cell).toEqual({ row: 1, col: 2 });
   });
 });
-
-/** Búsqueda en anchura sobre (celda, orientación): el camino más corto. */
-function shortestSolution(map: GameMap, palette: ReadonlySet<string>): Command[] | null {
-  const commands = COMMANDS.filter((c) => palette.has(c));
-  const startKey = `${cellKey(map.start)}@${map.startHeading}`;
-  const queue: { key: string; path: Command[] }[] = [{ key: startKey, path: [] }];
-  const seen = new Set([startKey]);
-  while (queue.length > 0) {
-    const { path } = queue.shift()!;
-    for (const command of commands) {
-      const candidate = [...path, command];
-      const run = simulate(map, candidate);
-      if (run.outcome.kind === "GOAL") return candidate;
-      if (run.outcome.kind !== "INCOMPLETE") continue;
-      const last = run.steps.at(-1)!.state;
-      const key = `${cellKey(last.cell)}@${last.heading}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        queue.push({ key, path: candidate });
-      }
-    }
-  }
-  return null;
-}
 
 describe("bancos de mapas por nivel", () => {
   it.each(EDUCATION_LEVELS)("todos los mapas de %s se pueden resolver con su paleta", (level) => {
