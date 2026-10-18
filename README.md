@@ -19,6 +19,10 @@ Educación Escolar). Este repo tiene todo lo que no es pantalla:
 - `firmware/` y [docs/robot-wifi.md](docs/robot-wifi.md): el ESP32 que recibe el
   programa por wifi y el contrato que cumple.
 
+También está disponible el enlace directo por **Bluetooth Classic SPP** para
+ESP32 clásico, con el firmware de motores, ojos y sonidos del equipo. La guía
+de carga, emparejamiento y capacidades está en [docs/robot-bluetooth.md](docs/robot-bluetooth.md).
+
 La web (Vite + React) vive en [orinqq/robolab-web](https://github.com/orinqq/robolab-web)
 y consume este repo como paquete npm (ver "Cómo lo consume la web").
 
@@ -163,6 +167,9 @@ despliegue: ver el README de [robolab-web](https://github.com/orinqq/robolab-web
 ```bash
 npm run verify     # tipos + lint + pruebas
 ```
+
+La verificación incluye las pruebas C++17 del firmware Bluetooth: requiere
+`g++` o la variable `CXX` apuntando a otro compilador C++17.
 
 Las pruebas del dominio corren en Node; las del backend usan
 [convex-test](https://github.com/get-convex/convex-test) en `edge-runtime`, sin
