@@ -3,7 +3,8 @@
  * la lectura desconfía de lo guardado: si está dañado o es de otra versión,
  * se empieza de cero en vez de romper la pantalla.
  */
-import { CHALLENGES, type Topic } from "./challenges";
+import { MISSIONS, missionsFor } from "../lab/mission";
+import { CHALLENGES, type Challenge, type Topic } from "./challenges";
 
 export type PlayResult = {
   readonly solved: boolean;
@@ -48,8 +49,23 @@ export function recordPlay(progress: ExploreProgress, challengeId: string, resul
   return { ...progress, records: { ...progress.records, [challengeId]: record } };
 }
 
+/**
+ * Lo que se juega en el modo abierto: los retos de bloques de Inicial y las
+ * misiones de Primaria. Los retos de bloques de Primaria ya no se listan (ese
+ * nivel juega misiones), así que no cuentan en el avance.
+ */
+export const openChallenges = (): readonly Challenge[] => CHALLENGES.filter((c) => c.level !== "primaria");
+
+/** Ids de lo que se puede jugar en un tópico, en el orden de las listas. */
+export const openIds = (topic: Topic): string[] => [
+  ...openChallenges()
+    .filter((c) => c.topic === topic)
+    .map((c) => c.id),
+  ...missionsFor(topic).map((m) => m.id),
+];
+
 export function topicProgress(progress: ExploreProgress, topic: Topic): { solved: number; total: number } {
-  const ids = CHALLENGES.filter((c) => c.topic === topic).map((c) => c.id);
+  const ids = openIds(topic);
   return { solved: ids.filter((id) => progress.records[id]?.solved).length, total: ids.length };
 }
 
@@ -73,7 +89,7 @@ export function parseProgress(raw: string | null): ExploreProgress {
   try {
     const data: unknown = JSON.parse(raw);
     if (typeof data !== "object" || data === null || (data as { version?: unknown }).version !== 1) return emptyProgress();
-    const known = new Set(CHALLENGES.map((c) => c.id));
+    const known = new Set([...CHALLENGES.map((c) => c.id), ...MISSIONS.map((m) => m.id)]);
     const records: Record<string, ChallengeRecord> = {};
     for (const [id, value] of Object.entries((data as { records?: object }).records ?? {})) {
       const record = parseRecord(value);
