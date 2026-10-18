@@ -6,8 +6,10 @@ Educación Escolar). Este repo tiene todo lo que no es pantalla:
 
 - `convex/`: esquema, consultas, mutaciones, acciones y rutas HTTP del backend
   en [Convex](https://convex.dev), con autenticación de docentes
-  (`@convex-dev/auth`), sesiones de alumnos por código, evaluaciones, ranking,
-  retos abiertos anónimos, correo de recuperación y el relé del robot.
+  (`@convex-dev/auth`), clases con código (`ABC-123`) a las que los alumnos se
+  unen con un apodo, retos asignados a cada clase con sus resultados,
+  evaluaciones, ranking, retos abiertos anónimos, correo de recuperación y el
+  relé del robot.
 - `domain/`: el dominio compartido en TypeScript puro (sin React, sin Convex,
   sin red): intérprete de bloques, simulador, mapas y niveles, calificación,
   códigos, reglas de validación, retos y protocolo del robot. Lo usan el

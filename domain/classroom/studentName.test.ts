@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanStudentName, nameKey, parseStudentList } from "./studentName";
+import { NICKNAME_MAX, cleanNickname, cleanStudentName, nameKey, parseStudentList } from "./studentName";
 
 const ok = (raw: string) => {
   const r = cleanStudentName(raw);
@@ -80,5 +80,27 @@ describe("lista de alumnos", () => {
 
   it("una lista vacía no tiene nombres ni problemas", () => {
     expect(parseStudentList(" \n , ", [])).toEqual({ entries: [], names: [], problemCount: 0 });
+  });
+});
+
+describe("apodo para unirse a la clase", () => {
+  const nick = (raw: string) => {
+    const r = cleanNickname(raw);
+    return r.ok ? r.name : r.reason;
+  };
+
+  it("respeta cómo lo escribió el alumno; si vino todo en minúsculas o mayúsculas, solo pone la primera", () => {
+    expect(nick("pingüino veloz")).toBe("Pingüino veloz");
+    expect(nick("PUMA RÁPIDO")).toBe("Puma rápido");
+    expect(nick("Zorro Curioso")).toBe("Zorro Curioso");
+    expect(nick("  cóndor   azul ")).toBe("Cóndor azul");
+  });
+
+  it("usa las mismas reglas de letras que un nombre, pero más corto", () => {
+    expect(nick("Ana3")).toBe("Tiene caracteres no permitidos: 3. Usa solo letras.");
+    expect(nick("x")).toBe("Muy corto: escribe al menos 2 letras.");
+    expect(nick("a".repeat(24))).toHaveLength(24);
+    expect(nick("a".repeat(25))).toBe(`Muy largo: máximo ${NICKNAME_MAX} caracteres.`);
+    expect(NICKNAME_MAX).toBe(24);
   });
 });

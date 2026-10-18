@@ -41,7 +41,7 @@ export const create = mutation({
   },
 });
 
-async function summarize(ctx: QueryCtx, evaluation: Doc<"evaluations">) {
+export async function summarize(ctx: QueryCtx, evaluation: Doc<"evaluations">) {
   const classroom = await ctx.db.get(evaluation.classroomId);
   const questions = await ctx.db
     .query("questions")
