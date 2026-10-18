@@ -8,6 +8,9 @@
  * intento nuevo y todos quedan registrados.
  */
 import { ConvexError, v } from "convex/values";
+import { catalogItem } from "../domain/classroom/catalog";
+import { isValidJoinCode, normalizeJoinCode } from "../domain/classroom/joinCode";
+import { cleanNickname, nameKey } from "../domain/classroom/studentName";
 import {
   generateSessionToken,
   isValidAccessCode,
@@ -19,10 +22,12 @@ import { policyFor } from "../domain/game/levels";
 import { ProgramError, compile, countBlocks, parseProgram, usesOnly } from "../domain/game/program";
 import { simulate } from "../domain/game/simulator";
 import type { Doc, Id } from "./_generated/dataModel";
-import { type QueryCtx, mutation, query } from "./_generated/server";
+import { type MutationCtx, type QueryCtx, mutation, query } from "./_generated/server";
 import { attemptNumber, attemptsOf, runsOf } from "./lib/attempts";
 import { classroomLabel, requireStudent } from "./lib/access";
-import { countFinishedAttempt } from "./lib/impact";
+import { visibleAssignments, studentsOf } from "./lib/classwork";
+import { countFinishedAttempt, countPlay } from "./lib/impact";
+import { MAX_PLAYS_PER_MINUTE, PLAY_WINDOW_MS, TOO_MANY_PLAYS, playArgs, verifyPlay } from "./lib/plays";
 
 const SESSION_MS = 8 * 60 * 60 * 1000; // una jornada escolar
 /** Tope de veces que se puede rendir una misma evaluación. */
@@ -138,6 +143,60 @@ export const signIn = mutation({
   },
 });
 
+/** Se anota el fallo y se limpian los viejos: el freno de `signIn` y `join` es el mismo. */
+async function failJoin(ctx: MutationCtx, now: number, error: string): Promise<{ error: string }> {
+  await ctx.db.insert("signInFailures", { at: now });
+  const old = await ctx.db
+    .query("signInFailures")
+    .withIndex("by_at", (q) => q.lt("at", now - SIGNIN_WINDOW_MS))
+    .take(20);
+  for (const row of old) await ctx.db.delete(row._id);
+  return { error };
+}
+
+/** Tope de alumnos por clase: el código se comparte, y sin tope cualquiera con el podría llenarla. */
+export const MAX_STUDENTS_PER_CLASS = 200;
+
+/**
+ * El alumno se une a su clase con el código que el docente le dio (ABC-123) y
+ * un apodo, sin cuenta ni lista previa. Un código que no existe se devuelve
+ * como `{ error }` (cuenta para el freno, igual que `signIn`); un apodo no
+ * válido o repetido en la clase se lanza, porque no hay nada que contar.
+ */
+export const join = mutation({
+  args: { code: v.string(), nickname: v.string() },
+  handler: async (
+    ctx,
+    { code, nickname },
+  ): Promise<{ token: string; displayName: string; classroomLabel: string } | { error: string }> => {
+    const now = Date.now();
+    if ((await recentFailures(ctx, now)).length >= MAX_FAILED_SIGNINS_PER_MINUTE) {
+      return { error: "Hubo muchos intentos seguidos. Espera un minuto y vuelve a intentar." };
+    }
+    const joinCode = normalizeJoinCode(code);
+    const classroom = isValidJoinCode(joinCode)
+      ? await ctx.db
+          .query("classrooms")
+          .withIndex("by_join_code", (q) => q.eq("joinCode", joinCode))
+          .unique()
+      : null;
+    if (!classroom) return await failJoin(ctx, now, "No encontramos esa clase. Revisa el código.");
+
+    const checked = cleanNickname(nickname);
+    if (!checked.ok) throw new ConvexError(checked.reason);
+    const classmates = await studentsOf(ctx, classroom._id);
+    if (classmates.some((s) => nameKey(s.displayName) === nameKey(checked.name))) {
+      throw new ConvexError("Ese apodo ya está en uso en tu clase. Elige otro.");
+    }
+    if (classmates.length >= MAX_STUDENTS_PER_CLASS) throw new ConvexError("Esta clase ya está llena. Avísale a tu profesora o profesor.");
+
+    const studentId = await ctx.db.insert("students", { classroomId: classroom._id, displayName: checked.name, createdAt: now });
+    const token = generateSessionToken();
+    await ctx.db.insert("studentSessions", { studentId, token, expiresAt: now + SESSION_MS });
+    return { token, displayName: checked.name, classroomLabel: classroomLabel(classroom) };
+  },
+});
+
 export const signOut = mutation({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
@@ -181,14 +240,61 @@ export const home = query({
     items.sort((a, b) => a.createdAt - b.createdAt);
     // La primera sin terminar; si terminó todas, muestra la última para ver su resultado.
     const current = items.find((i) => !i.finished) ?? items.at(-1) ?? null;
+
+    // Retos de la clase (sin borradores), con una marca en los que este alumno ya resolvió.
+    const solvedIds = new Set(
+      (
+        await ctx.db
+          .query("challengePlays")
+          .withIndex("by_student", (q) => q.eq("studentId", student._id))
+          .collect()
+      )
+        .filter((p) => p.solved)
+        .map((p) => p.challengeId),
+    );
+    const classChallenges = (await visibleAssignments(ctx, classroom._id)).flatMap((a) => {
+      const item = catalogItem(a.challengeId);
+      return item
+        ? [{ assignmentId: a._id, challengeId: a.challengeId, title: item.title, level: item.level, kind: item.kind, solved: solvedIds.has(a.challengeId) }]
+        : [];
+    });
     return {
       displayName: student.displayName,
       level: classroom.level,
       classroomLabel: classroomLabel(classroom),
+      /** Código de la clase; null en las anteriores a los códigos. */
+      joinCode: classroom.joinCode ?? null,
       today,
       evaluation: current,
       pendingCount: items.filter((i) => !i.finished).length,
+      classChallenges,
     };
+  },
+});
+
+/**
+ * El alumno terminó una partida de un reto de su clase (o de cualquier reto
+ * abierto). Igual que `explore.recordPlay`, el servidor vuelve a revisar el
+ * programa: en un reto de bloques con `program` o `pick`; en una misión de
+ * Primaria con `arrows` y `level`. Queda anotada a nombre del alumno y suma al
+ * panel de impacto sin nombres.
+ */
+export const recordChallengePlay = mutation({
+  args: { token: v.string(), ...playArgs },
+  handler: async (ctx, { token, ...input }): Promise<{ solved: boolean }> => {
+    const { student } = await requireStudent(ctx, token);
+    const { challengeId, play } = verifyPlay(input);
+
+    const now = Date.now();
+    const recent = await ctx.db
+      .query("challengePlays")
+      .withIndex("by_student", (q) => q.eq("studentId", student._id).gt("createdAt", now - PLAY_WINDOW_MS))
+      .collect();
+    if (recent.length >= MAX_PLAYS_PER_MINUTE) throw new ConvexError(TOO_MANY_PLAYS);
+
+    await ctx.db.insert("challengePlays", { studentId: student._id, classroomId: student.classroomId, challengeId, ...play, createdAt: now });
+    await countPlay(ctx, now, `alumno:${student._id}`, play);
+    return { solved: play.solved };
   },
 });
 
