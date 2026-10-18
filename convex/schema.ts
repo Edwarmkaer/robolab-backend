@@ -146,6 +146,25 @@ export default defineSchema({
     .index("by_robot_request", ["robotId", "requestId"]),
 
   // Registro de cada correo pedido: confirma si salió y sirve para frenar abusos.
+  // Panel de impacto: cuentas por día (hora de Perú) y una fila "total". Solo cifras.
+  impactDays: defineTable({
+    day: v.string(),
+    plays: v.number(),
+    solved: v.number(),
+    withHints: v.number(),
+    withHintsSolved: v.number(),
+    runsSolved: v.number(),
+    msSolved: v.number(),
+    devices: v.number(),
+    attemptsFinished: v.number(),
+    students: v.number(),
+  }).index("by_day", ["day"]),
+  // Qué clave opaca (dispositivo o alumno) ya se contó cada día, para no contarla dos veces.
+  impactSeen: defineTable({
+    day: v.string(),
+    key: v.string(),
+  }).index("by_day_key", ["day", "key"]),
+
   emailDeliveries: defineTable({
     to: v.string(),
     kind: v.literal("password-reset"),
