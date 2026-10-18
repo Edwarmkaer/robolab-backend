@@ -17,14 +17,19 @@ export default defineSchema({
     level: educationLevel,
     grade: v.string(),
     section: v.string(),
+    // Código para que los alumnos se unan (ABC-123). Las clases anteriores a los códigos no lo tienen.
+    joinCode: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_teacher", ["teacherId"]),
+  })
+    .index("by_teacher", ["teacherId"])
+    .index("by_join_code", ["joinCode"]),
 
-  // Los alumnos no tienen cuenta: entran con un código que les da el docente.
+  // Los alumnos no tienen cuenta: se unen a la clase con su código y un apodo (`student.join`),
+  // o entran con un código personal que les da el docente (`accessCode`, solo los que él agregó).
   students: defineTable({
     classroomId: v.id("classrooms"),
     displayName: v.string(),
-    accessCode: v.string(),
+    accessCode: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_classroom", ["classroomId"])
@@ -54,7 +59,9 @@ export default defineSchema({
     studentId: v.id("students"),
     token: v.string(),
     expiresAt: v.number(),
-  }).index("by_token", ["token"]),
+  })
+    .index("by_token", ["token"])
+    .index("by_student", ["studentId"]),
 
   // Ingresos de alumno fallidos (código que no existe), para frenar a quien adivina códigos.
   signInFailures: defineTable({
@@ -196,6 +203,32 @@ export default defineSchema({
   })
     .index("by_mission_time", ["missionId", "createdAt"])
     .index("by_device_time", ["deviceId", "createdAt"]),
+
+  // @robolab/backend 0.4.0: retos asignados a una clase y las partidas verificadas de sus alumnos.
+  assignments: defineTable({
+    // Sin clase mientras el docente aún no lo asigna (T7 "Asignar a una clase").
+    classroomId: v.optional(v.id("classrooms")),
+    // Id de un reto de bloques o de una misión de Primaria (domain/classroom/catalog).
+    challengeId: v.string(),
+    visibility: v.union(v.literal("public"), v.literal("class"), v.literal("draft")),
+    teacherId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_classroom", ["classroomId"])
+    .index("by_teacher", ["teacherId"]),
+  // Una fila por partida de un alumno con sesión; `solved` lo decide el servidor.
+  challengePlays: defineTable({
+    studentId: v.id("students"),
+    classroomId: v.id("classrooms"),
+    challengeId: v.string(),
+    solved: v.boolean(),
+    runs: v.number(),
+    hints: v.number(),
+    ms: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_student", ["studentId", "createdAt"])
+    .index("by_classroom_challenge", ["classroomId", "challengeId"]),
 
   emailDeliveries: defineTable({
     to: v.string(),
