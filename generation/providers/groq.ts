@@ -98,7 +98,7 @@ export class GroqProvider implements MissionProvider {
     }
   }
 }
-async function limitedText(
+export async function limitedText(
   response: Response,
   signal: AbortSignal,
 ): Promise<string> {
