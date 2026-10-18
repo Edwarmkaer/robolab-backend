@@ -27,7 +27,9 @@ const SESSION_MS = 8 * 60 * 60 * 1000; // una jornada escolar
 /** Tope de veces que se puede rendir una misma evaluación. */
 export const MAX_TRIES = 20;
 /** Tope de ejecuciones por estrella: evita llenar la base con clics repetidos. */
-export const MAX_RUNS_PER_STAGE = 100;
+/** Ejecuciones seguidas que se aceptan por estrella. Pasado el minuto se puede seguir: nunca es un bloqueo definitivo. */
+export const RUNS_PER_MINUTE = 30;
+export const RUN_WINDOW_MS = 60_000;
 
 async function questionsOf(ctx: QueryCtx, evaluationId: Id<"evaluations">) {
   return await ctx.db
@@ -212,8 +214,11 @@ export const submitRun = mutation({
       return { outcome: "GOAL" as const, question: toPublicQuestion(question, attempt.stage) };
     }
 
+    const now = Date.now();
     const previous = await runsOf(ctx, attempt._id, attempt.stage);
-    if (previous.length >= MAX_RUNS_PER_STAGE) throw new ConvexError("Tómate un respiro y vuelve a intentarlo.");
+    if (previous.filter((r) => now - r.createdAt < RUN_WINDOW_MS).length >= RUNS_PER_MINUTE) {
+      throw new ConvexError("Tómate un respiro de un minuto y vuelve a intentarlo.");
+    }
 
     const policy = policyFor(classroom.level);
     let result: ReturnType<typeof simulate>;
@@ -228,7 +233,6 @@ export const submitRun = mutation({
       throw error;
     }
 
-    const now = Date.now();
     const { outcome } = result;
     await ctx.db.insert("runs", {
       attemptId: attempt._id,

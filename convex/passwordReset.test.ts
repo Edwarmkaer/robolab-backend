@@ -114,6 +114,39 @@ describe("contraseña del docente", () => {
     await expect(t.action(api.passwordReset.request, { email: EMAIL })).rejects.toThrow(/Puedes pedir otro en \d+ segundos/);
   });
 
+  it("si pide el código dos veces seguidas, el que le llegó sigue sirviendo", async () => {
+    const t = await withTeacher();
+    await t.action(api.passwordReset.request, { email: EMAIL });
+    const code = lastCode();
+    // Segundo toque en "Enviar código" a los pocos segundos: se rechaza, pero no debe invalidar el primero.
+    await expect(t.action(api.passwordReset.request, { email: EMAIL })).rejects.toThrow(/Puedes pedir otro/);
+
+    const result = await t.action(api.auth.signIn, {
+      provider: "password",
+      params: { flow: "reset-verification", email: EMAIL, code, newPassword: NEW_PASSWORD },
+    });
+    expect(result.tokens).toBeTruthy();
+    const deliveries = await t.run((ctx) => ctx.db.query("emailDeliveries").collect());
+    expect(deliveries.filter((d) => d.status === "sent")).toHaveLength(1);
+  });
+
+  it("pedir un código para un correo sin cuenta no frena el siguiente pedido", async () => {
+    const t = await withTeacher();
+    for (let i = 0; i < 2; i++) {
+      await expect(t.action(api.passwordReset.request, { email: "nadie@colegio.pe" })).rejects.toThrow(/No hay una cuenta/);
+    }
+    const deliveries = await t.run((ctx) => ctx.db.query("emailDeliveries").collect());
+    expect(deliveries.every((d) => d.status === "failed")).toBe(true);
+  });
+
+  it("un envío que quedó pendiente hace rato (la acción murió a mitad) no frena los siguientes", async () => {
+    const t = await withTeacher();
+    await t.run((ctx) =>
+      ctx.db.insert("emailDeliveries", { to: EMAIL, kind: "password-reset", status: "pending", requestedAt: Date.now() - 6 * 60_000 }),
+    );
+    await expect(t.action(api.passwordReset.request, { email: EMAIL })).resolves.toEqual({ sentTo: EMAIL });
+  });
+
   it("si el correo no sale, lo dice y queda registrado como fallido", async () => {
     const t = await withTeacher();
     vi.stubEnv("MAIL_PROVIDER", "");
