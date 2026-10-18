@@ -18,7 +18,18 @@ export function isCalendarDate(value: string): value is CalendarDate {
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
-/** Fecha local del dispositivo para un instante dado. */
+/** Perú no cambia de hora: el día empieza a las 05:00 UTC. */
+export const LIMA_OFFSET_MS = -5 * 60 * 60_000;
+
+/**
+ * Fecha de calendario en Perú para un instante. Es la que usa el servidor
+ * para decidir qué evaluación es "de hoy", sin confiar en el reloj de la tablet.
+ */
+export function limaCalendarDate(instant: number = Date.now()): CalendarDate {
+  return new Date(instant + LIMA_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** Fecha local del dispositivo para un instante dado (lo que ve el docente en su pantalla). */
 export function localCalendarDate(instant: Date = new Date()): CalendarDate {
   const y = instant.getFullYear();
   const m = String(instant.getMonth() + 1).padStart(2, "0");

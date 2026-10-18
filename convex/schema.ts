@@ -56,6 +56,11 @@ export default defineSchema({
     expiresAt: v.number(),
   }).index("by_token", ["token"]),
 
+  // Ingresos de alumno fallidos (código que no existe), para frenar a quien adivina códigos.
+  signInFailures: defineTable({
+    at: v.number(),
+  }).index("by_at", ["at"]),
+
   attempts: defineTable({
     evaluationId: v.id("evaluations"),
     studentId: v.id("students"),
