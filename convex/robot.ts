@@ -16,7 +16,7 @@
  * - Idempotencia: el mismo id de envío nunca se ejecuta dos veces.
  *
  * Registrar un robot (una vez, desde la consola del equipo):
- *   npx convex run robot:register '{"name":"Kusi"}'
+ *   npx convex run robot:register '{"name":"Wayra"}'
  * Devuelve el código (para la web) y la clave (solo para el firmware).
  */
 import { ConvexError, v } from "convex/values";
@@ -191,6 +191,18 @@ export const status = query({
 });
 
 // ---------- Para el robot (rutas HTTP, autenticadas con su clave) ----------
+
+/** Cambia el nombre que la web muestra de un robot (la clave y el código no cambian). */
+export const rename = internalMutation({
+  args: { from: v.string(), to: v.string() },
+  handler: async (ctx, { from, to }) => {
+    const name = to.trim();
+    if (!name) throw new Error("El nuevo nombre no puede estar vacío.");
+    const robots = (await ctx.db.query("robots").collect()).filter((r) => r.name === from.trim());
+    for (const robot of robots) await ctx.db.patch(robot._id, { name });
+    return { renamed: robots.length };
+  },
+});
 
 export const takeNext = internalMutation({
   args: { key: v.string() },
