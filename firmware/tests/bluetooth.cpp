@@ -32,6 +32,9 @@ int main() {
   assert(!session.motion().active());
   assert(!session.motion().output().left && !session.motion().output().right);
   assert(replies.back().id == "first" && replies.back().value == "ERR:STOPPED");
+  line(session, "RUN other D\n", 350);
+  assert(!session.motion().active()); // BUSY también es un resultado definitivo de ese id
+  assert(replies.back().id == "other" && replies.back().value == "ERR:BUSY");
   line(session, "RUN first A\n", 400);
   assert(!session.motion().active()); // id ya visto, no reiniciar motores
   assert(replies.back().value == "ERR:STOPPED");

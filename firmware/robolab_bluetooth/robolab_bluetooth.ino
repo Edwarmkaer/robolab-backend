@@ -109,7 +109,11 @@ void loop() {
   }
   for (int i = 0; i < 32 && Serial.available(); ++i) {
     const char c = static_cast<char>(Serial.read());
-    if (c == 'P' || c == 'p') { session.stop(); applyMotors(); }
+    if (c == 'P' || c == 'p') {
+      session.stop(); applyMotors();
+      bluetooth.disconnect(); // P tiene prioridad sobre cualquier RUN que siga en la cola.
+      return;
+    }
   }
   if (connected) {
     for (int i = 0; i < 256 && bluetooth.available(); ++i) {

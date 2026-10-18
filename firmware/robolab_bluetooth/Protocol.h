@@ -102,9 +102,9 @@ class RobotSession {
       for (size_t i = 0; i < used_; ++i) if (std::strcmp(id, history_[i].id) == 0) {
         emit_(context_, id, history_[i].status); return;
       }
-      if (motion_.active()) { emit_(context_, id, "ERR:BUSY"); return; }
       if (used_ == 64) { emit_(context_, id, "ERR:RECONNECT"); return; }
       std::snprintf(history_[used_++].id, sizeof(history_[0].id), "%s", id);
+      if (motion_.active()) { rememberStatus(id, "ERR:BUSY"); return; }
       const Check check = motion_.start(sequence, std::strlen(sequence), now);
       if (check != Check::Ok) { rememberStatus(id, checkReply(check)); return; }
       std::snprintf(activeId_, sizeof(activeId_), "%s", id);
