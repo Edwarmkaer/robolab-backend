@@ -4,8 +4,8 @@
  * nombres ni identificadores: solo cuentas.
  */
 
-/** Perú no cambia de hora: el día empieza a las 05:00 UTC. */
-export const LIMA_OFFSET_MS = -5 * 60 * 60_000;
+import { limaCalendarDate } from "../evaluation/calendar";
+
 /** Fila que acumula todo desde el inicio. */
 export const TOTAL = "total";
 
@@ -33,7 +33,7 @@ export type PlayFacts = {
   readonly ms: number;
 };
 
-export const limaDay = (instant: number): string => new Date(instant + LIMA_OFFSET_MS).toISOString().slice(0, 10);
+export const limaDay = (instant: number): string => limaCalendarDate(instant);
 
 export const emptyDay = (day: string): DayStats => ({
   day,

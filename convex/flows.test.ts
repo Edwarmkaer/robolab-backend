@@ -1,10 +1,20 @@
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { move } from "../domain/game/program";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { modules } from "./test.setup";
+
+// Las evaluaciones de estas pruebas son del 17 de octubre de 2026: el reloj del servidor se fija ese día (3 p. m. en Lima).
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(Date.UTC(2026, 9, 17, 20, 0));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const TODAY = "2026-10-17";
 
@@ -44,7 +54,9 @@ async function setup() {
 }
 
 async function signInStudent(t: Awaited<ReturnType<typeof setup>>["t"], code: string) {
-  const { token } = await t.mutation(api.student.signIn, { code: code.toLowerCase() });
+  const signedIn = await t.mutation(api.student.signIn, { code: code.toLowerCase() });
+  if ("error" in signedIn) throw new Error(signedIn.error);
+  const { token } = signedIn;
   return token;
 }
 
@@ -151,8 +163,8 @@ describe("alumno", () => {
 
   it("rechaza códigos inexistentes o tokens inventados", async () => {
     const { t } = await setup();
-    await expect(t.mutation(api.student.signIn, { code: "ZZZZZZ" })).rejects.toThrow(/No encontramos/);
-    await expect(t.mutation(api.student.signIn, { code: "abc" })).rejects.toThrow(/no es válido/);
+    expect(await t.mutation(api.student.signIn, { code: "ZZZZZZ" })).toMatchObject({ error: expect.stringMatching(/No encontramos/) });
+    expect(await t.mutation(api.student.signIn, { code: "abc" })).toMatchObject({ error: expect.stringMatching(/no es válido/) });
     await expect(t.query(api.student.home, { token: "falso", today: TODAY })).rejects.toThrow(/sesión/);
   });
 

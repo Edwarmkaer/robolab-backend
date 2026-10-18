@@ -13,7 +13,7 @@ import {
   isValidAccessCode,
   normalizeAccessCode,
 } from "../domain/evaluation/accessCode";
-import { isCalendarDate } from "../domain/evaluation/calendar";
+import { limaCalendarDate } from "../domain/evaluation/calendar";
 import { gradeAnswer, gradeEvaluation } from "../domain/evaluation/scoring";
 import { policyFor } from "../domain/game/levels";
 import { ProgramError, compile, countBlocks, parseProgram, usesOnly } from "../domain/game/program";
@@ -55,6 +55,21 @@ async function requireOwnEvaluation(ctx: QueryCtx, token: string, evaluationId: 
   return { student, evaluation };
 }
 
+/** Solo se juega el día programado, según el reloj del servidor (hora de Perú), no el de la tablet. */
+function requireScheduledToday(evaluation: Doc<"evaluations">) {
+  const today = limaCalendarDate();
+  if (evaluation.scheduledDate > today) throw new ConvexError("Esta evaluación todavía no empieza. Es para otro día.");
+  if (evaluation.scheduledDate < today) throw new ConvexError("Esta evaluación ya pasó. Pídele a tu docente una nueva.");
+}
+
+async function requirePlayableAttempt(ctx: QueryCtx, token: string, attemptId: Id<"attempts">) {
+  const own = await requireOwnAttempt(ctx, token, attemptId);
+  const evaluation = await ctx.db.get(own.attempt.evaluationId);
+  if (!evaluation) throw new ConvexError("No encontramos tu evaluación.");
+  requireScheduledToday(evaluation);
+  return own;
+}
+
 /** Cantidad de bloques del programa: dato informativo, nunca invalida la respuesta. */
 function blocksIn(program: unknown): number {
   try {
@@ -71,18 +86,54 @@ const toPublicQuestion = (q: Doc<"questions">, stage: number) => ({
   points: q.points,
 });
 
+/**
+ * Freno contra adivinar códigos: si en un minuto fallan más ingresos de los
+ * que un aula produce de verdad, nadie entra hasta que pase el minuto. Con
+ * 887 millones de códigos posibles, a 60 intentos por minuto probarlos todos
+ * tomaría siglos. No se guarda quién falló: solo cuándo.
+ */
+export const MAX_FAILED_SIGNINS_PER_MINUTE = 60;
+export const SIGNIN_WINDOW_MS = 60_000;
+
+async function recentFailures(ctx: QueryCtx, now: number) {
+  return await ctx.db
+    .query("signInFailures")
+    .withIndex("by_at", (q) => q.gt("at", now - SIGNIN_WINDOW_MS))
+    .collect();
+}
+
 export const signIn = mutation({
   args: { code: v.string() },
-  handler: async (ctx, { code }) => {
+  // Los fallos se devuelven (no se lanzan): un error deshace las escrituras de la
+  // mutación, y el fallo se necesita guardado para contar los intentos.
+  handler: async (ctx, { code }): Promise<{ token: string; displayName: string } | { error: string }> => {
+    const now = Date.now();
+    if ((await recentFailures(ctx, now)).length >= MAX_FAILED_SIGNINS_PER_MINUTE) {
+      return { error: "Hubo muchos intentos seguidos. Espera un minuto y vuelve a intentar." };
+    }
     const accessCode = normalizeAccessCode(code);
-    if (!isValidAccessCode(accessCode)) throw new ConvexError("Ese código no es válido. Revisa las letras.");
-    const student = await ctx.db
-      .query("students")
-      .withIndex("by_access_code", (q) => q.eq("accessCode", accessCode))
-      .unique();
-    if (!student) throw new ConvexError("No encontramos ese código. Pídele ayuda a tu profesora o profesor.");
+    const student = isValidAccessCode(accessCode)
+      ? await ctx.db
+          .query("students")
+          .withIndex("by_access_code", (q) => q.eq("accessCode", accessCode))
+          .unique()
+      : null;
+    if (!student) {
+      await ctx.db.insert("signInFailures", { at: now });
+      // Limpieza de paso: los fallos viejos ya no cuentan y no hace falta guardarlos.
+      const old = await ctx.db
+        .query("signInFailures")
+        .withIndex("by_at", (q) => q.lt("at", now - SIGNIN_WINDOW_MS))
+        .take(20);
+      for (const row of old) await ctx.db.delete(row._id);
+      return {
+        error: isValidAccessCode(accessCode)
+          ? "No encontramos ese código. Pídele ayuda a tu profesora o profesor."
+          : "Ese código no es válido. Revisa las letras.",
+      };
+    }
     const token = generateSessionToken();
-    await ctx.db.insert("studentSessions", { studentId: student._id, token, expiresAt: Date.now() + SESSION_MS });
+    await ctx.db.insert("studentSessions", { studentId: student._id, token, expiresAt: now + SESSION_MS });
     return { token, displayName: student.displayName };
   },
 });
@@ -100,9 +151,10 @@ export const signOut = mutation({
 
 /** Lo que ve el alumno al entrar: su evaluación del día, directamente. */
 export const home = query({
-  args: { token: v.string(), today: v.string() },
-  handler: async (ctx, { token, today }) => {
-    if (!isCalendarDate(today)) throw new ConvexError("Fecha no válida.");
+  // `today` lo mandaba la web antigua; se ignora: el día lo decide el servidor.
+  args: { token: v.string(), today: v.optional(v.string()) },
+  handler: async (ctx, { token }) => {
+    const today = limaCalendarDate();
     const { student, classroom } = await requireStudent(ctx, token);
     const evaluations = await ctx.db
       .query("evaluations")
@@ -133,6 +185,7 @@ export const home = query({
       displayName: student.displayName,
       level: classroom.level,
       classroomLabel: classroomLabel(classroom),
+      today,
       evaluation: current,
       pendingCount: items.filter((i) => !i.finished).length,
     };
@@ -143,9 +196,10 @@ export const home = query({
 export const start = mutation({
   args: { token: v.string(), evaluationId: v.id("evaluations") },
   handler: async (ctx, { token, evaluationId }) => {
-    const { student } = await requireOwnEvaluation(ctx, token, evaluationId);
+    const { student, evaluation } = await requireOwnEvaluation(ctx, token, evaluationId);
     const latest = (await attemptsOf(ctx, student._id, evaluationId)).at(-1);
     if (latest) return latest._id;
+    requireScheduledToday(evaluation);
     return await ctx.db.insert("attempts", {
       evaluationId,
       studentId: student._id,
@@ -160,11 +214,12 @@ export const start = mutation({
 export const retry = mutation({
   args: { token: v.string(), evaluationId: v.id("evaluations") },
   handler: async (ctx, { token, evaluationId }) => {
-    const { student } = await requireOwnEvaluation(ctx, token, evaluationId);
+    const { student, evaluation } = await requireOwnEvaluation(ctx, token, evaluationId);
     const attempts = await attemptsOf(ctx, student._id, evaluationId);
     const latest = attempts.at(-1);
     if (!latest) throw new ConvexError("Primero empieza la evaluación.");
     if (latest.finishedAt === undefined) return latest._id; // ya está jugando otra vez
+    requireScheduledToday(evaluation);
     if (attempts.length >= MAX_TRIES) throw new ConvexError("Ya jugaste muchas veces esta evaluación. ¡Buen trabajo!");
     return await ctx.db.insert("attempts", {
       evaluationId,
@@ -205,7 +260,7 @@ export const attempt = query({
 export const submitRun = mutation({
   args: { token: v.string(), attemptId: v.id("attempts"), program: v.any() },
   handler: async (ctx, { token, attemptId, program }) => {
-    const { classroom, attempt } = await requireOwnAttempt(ctx, token, attemptId);
+    const { classroom, attempt } = await requirePlayableAttempt(ctx, token, attemptId);
     if (attempt.finishedAt !== undefined) throw new ConvexError("Ya terminaste esta evaluación.");
     const questions = await questionsOf(ctx, attempt.evaluationId);
     const question = questions[attempt.stage];
@@ -257,7 +312,7 @@ export const answer = mutation({
     program: v.any(),
   },
   handler: async (ctx, args) => {
-    const { attempt } = await requireOwnAttempt(ctx, args.token, args.attemptId);
+    const { attempt } = await requirePlayableAttempt(ctx, args.token, args.attemptId);
     if (attempt.finishedAt !== undefined) throw new ConvexError("Ya terminaste esta evaluación.");
     if (attempt.questionShownAt === undefined) throw new ConvexError("Primero lleva al robot a la estrella.");
     const questions = await questionsOf(ctx, attempt.evaluationId);

@@ -1,8 +1,18 @@
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
 import { modules } from "./test.setup";
+
+// Las evaluaciones de estas pruebas son del 17 de octubre de 2026: el reloj del servidor se fija ese día (3 p. m. en Lima).
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(Date.UTC(2026, 9, 17, 20, 0));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const TODAY = "2026-10-17";
 
@@ -129,7 +139,9 @@ describe("datos de demostración", () => {
     const { t, teacher, created } = await seededProgress();
     const classroom = await teacher.query(api.classrooms.get, { classroomId: created.classroomId });
     const student = classroom.students[0]!;
-    const { token } = await t.mutation(api.student.signIn, { code: student.accessCode });
+    const signedIn = await t.mutation(api.student.signIn, { code: student.accessCode });
+    if ("error" in signedIn) throw new Error(signedIn.error);
+    const { token } = signedIn;
     const home = await t.query(api.student.home, { token, today: TODAY });
     expect(home.evaluation).toMatchObject({ finished: false, attemptId: null });
   });
