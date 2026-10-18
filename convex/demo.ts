@@ -13,6 +13,7 @@ import { gradeEvaluation } from "../domain/evaluation/scoring";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
 import { uniqueAccessCode } from "./lib/codes";
+import { countFinishedAttempt } from "./lib/impact";
 import {
   ABSENCE_RATE,
   DEMO_CLASS,
@@ -121,6 +122,7 @@ export const seed = internalMutation({
             totalMs: result.totalMs,
             totalRuns: records.reduce((sum, r) => sum + r.runs, 0),
           });
+          await countFinishedAttempt(ctx, simulated.finishedAt, student.id);
           let previous = startedAt;
           for (const [stage, graded] of result.answers.entries()) {
             const raw = records[stage]!;

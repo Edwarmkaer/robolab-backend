@@ -8,6 +8,7 @@ import { challengeById } from "../domain/explore/challenges";
 import { checkPrediction, checkProgram } from "../domain/explore/check";
 import { ProgramError, parseProgram } from "../domain/game/program";
 import { internalQuery, mutation } from "./_generated/server";
+import { countPlay } from "./lib/impact";
 
 const DEVICE_ID = /^[0-9a-f]{32}$/;
 /** Partidas por dispositivo y minuto: una persona jugando de verdad no llega. */
@@ -48,15 +49,14 @@ export const recordPlay = mutation({
       }
     }
 
-    await ctx.db.insert("explorePlays", {
-      deviceId: args.deviceId,
-      challengeId: challenge.id,
+    const play = {
       solved,
       runs: clamp(args.runs, 1000),
       hints: clamp(args.hints, challenge.hints.length),
       ms: clamp(args.ms, 24 * 60 * 60 * 1000),
-      createdAt: now,
-    });
+    };
+    await ctx.db.insert("explorePlays", { deviceId: args.deviceId, challengeId: challenge.id, ...play, createdAt: now });
+    await countPlay(ctx, now, args.deviceId, play);
     return { solved };
   },
 });

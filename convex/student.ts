@@ -22,6 +22,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, mutation, query } from "./_generated/server";
 import { attemptNumber, attemptsOf, runsOf } from "./lib/attempts";
 import { classroomLabel, requireStudent } from "./lib/access";
+import { countFinishedAttempt } from "./lib/impact";
 
 const SESSION_MS = 8 * 60 * 60 * 1000; // una jornada escolar
 /** Tope de veces que se puede rendir una misma evaluación. */
@@ -312,6 +313,7 @@ export const answer = mutation({
       totalMs: result.totalMs,
       totalRuns: answers.reduce((sum, a) => sum + a.runs, 0),
     });
+    await countFinishedAttempt(ctx, now, attempt.studentId);
     return { isCorrect: graded.isCorrect, finished: true };
   },
 });
