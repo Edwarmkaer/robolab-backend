@@ -4,8 +4,9 @@
  * sin pasar por `validate_mission`), y solo se ofrecen las que pasan. Guardar vuelve
  * a validar. El navegador nunca ve la clave ni habla con el proveedor.
  *
- * Variables del despliegue: ANTHROPIC_API_KEY (sin ella el asistente queda
- * «no activado») y, opcional, ANTHROPIC_MODEL.
+ * Variables del despliegue: GEMINI_API_KEY o ANTHROPIC_API_KEY (sin ninguna el
+ * asistente queda «no activado»), y opcionales AGENT_PROVIDER, GEMINI_MODEL y
+ * ANTHROPIC_MODEL (ver generation/providers/select.ts).
  */
 import { ConvexError, v } from "convex/values";
 import { ContractError } from "../domain/mission/validation";
@@ -13,7 +14,7 @@ import { parseCustomMission } from "../domain/mission/custom";
 import type { Mission } from "../domain/mission/contracts";
 import { type GenerationErrorCode } from "../generation/contracts";
 import { generateActivity } from "../generation/orchestrator";
-import { AnthropicProvider, DEFAULT_ANTHROPIC_MODEL } from "../generation/providers/anthropic";
+import { chooseProvider } from "../generation/providers/select";
 import { parseActivityRequest } from "../generation/request";
 import { evaluate_difficulty, validate_mission } from "../generation/tools";
 import { internal } from "./_generated/api";
@@ -34,7 +35,7 @@ export const status = query({
   args: {},
   handler: async (ctx) => {
     await requireTeacher(ctx);
-    return { configured: Boolean(deploymentEnv().ANTHROPIC_API_KEY?.trim()) };
+    return { configured: chooseProvider(deploymentEnv()) !== null };
   },
 });
 
@@ -83,9 +84,8 @@ export const generate = action({
   },
   handler: async (ctx, args): Promise<GenerateResult> => {
     const teacherId = await ctx.runQuery(internal.agent.teacher, {});
-    const env = deploymentEnv();
-    const key = env.ANTHROPIC_API_KEY?.trim();
-    if (!key) return { status: "not_configured" };
+    const provider = chooseProvider(deploymentEnv());
+    if (!provider) return { status: "not_configured" };
     // La solicitud se revisa antes de apuntarla: un texto inválido no gasta intentos ni llama al proveedor.
     let request;
     try {
@@ -95,7 +95,6 @@ export const generate = action({
       throw error;
     }
     await ctx.runMutation(internal.agent.reserve, { teacherId });
-    const provider = new AnthropicProvider(key, env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL);
     const results = await generateActivity(request, provider);
     // Solo metadatos (nunca el objetivo ni la propuesta): sirven para ver costo y fallos en los logs.
     console.log(JSON.stringify({ agent: "generate", events: results.flatMap((r) => r.events) }));

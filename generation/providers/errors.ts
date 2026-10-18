@@ -1,6 +1,6 @@
 import type { GenerationErrorCode, ProviderName } from "../contracts";
 
-const NAMES: Record<ProviderName, string> = { groq: "Groq", anthropic: "Anthropic", ollama: "Ollama" };
+const NAMES: Record<ProviderName, string> = { groq: "Groq", anthropic: "Anthropic", gemini: "Gemini", ollama: "Ollama" };
 
 function messages(provider: ProviderName): Partial<Record<GenerationErrorCode, string>> {
   const name = NAMES[provider];

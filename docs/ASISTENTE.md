@@ -1,7 +1,7 @@
 # Asistente de misiones (Anthropic)
 
 El docente describe qué quiere que aprendan; el servidor le pide propuestas a
-Claude, las **valida y resuelve** (`validate_mission`) y solo ofrece las que pasan.
+el modelo, las **valida y resuelve** (`validate_mission`) y solo ofrece las que pasan.
 Guardar vuelve a validar. Nada de esto llega al alumno todavía: guardar deja la
 misión como borrador del docente (`agentMissions`).
 
@@ -20,12 +20,25 @@ orquestador no se ofrecen como propuestas del asistente.
 
 ## Configurar
 
+Proveedor: **Gemini** (por defecto si hay clave) o Anthropic.
+
 ```bash
-npx convex env set ANTHROPIC_API_KEY sk-ant-...        # sin ella: «asistente no activado»
-npx convex env set ANTHROPIC_MODEL claude-haiku-5-5    # opcional; este es el valor por defecto
+npx convex env set GEMINI_API_KEY AIza...             # sin ninguna clave: «asistente no activado»
+npx convex env set GEMINI_MODEL gemini-3.1-flash-lite # opcional; este es el valor por defecto
+# o, con Anthropic:
+npx convex env set ANTHROPIC_API_KEY sk-ant-...
+npx convex env set AGENT_PROVIDER anthropic           # opcional: fuerza uno si hay las dos claves
 ```
 
+Con las dos claves y sin `AGENT_PROVIDER`, se usa Gemini. Si `AGENT_PROVIDER` pide un
+proveedor sin clave, el asistente queda «no activado» (no cae en el otro en silencio).
 La clave solo vive en el despliegue de Convex. No va en la web ni en el repo.
+
+**Modelo de Gemini.** Se probó con la API real (`ROBOLAB_GEMINI_EVAL=1 GEMINI_API_KEY=… npx vitest run generation/gemini.controlled.test.ts`,
+máximo 3 llamadas): `gemini-3.1-flash-lite` entregó una misión verificada; `gemini-2.5-flash`
+ya no está disponible para cuentas nuevas y `gemini-3.5-flash`/`gemini-3.8-flash` pasaron los 15 s de
+espera por llamada. Los modelos cambian: si `status` sigue «activado» pero todo falla con
+«No pudimos generar a tiempo», revisa el modelo.
 
 ## Control de gasto
 

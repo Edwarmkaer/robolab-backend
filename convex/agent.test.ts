@@ -41,6 +41,13 @@ describe("asistente: estado", () => {
     expect(await teacher.query(api.agent.status, {})).toEqual({ configured: false });
   });
 
+  it("con la clave de Gemini también está activado", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("GEMINI_API_KEY", "clave-gemini");
+    const { teacher } = await withTeacher();
+    expect(await teacher.query(api.agent.status, {})).toEqual({ configured: true });
+  });
+
   it("solo para docentes con sesión", async () => {
     const { t } = await withTeacher();
     await expect(t.query(api.agent.status, {})).rejects.toThrow(/Inicia sesión/);
@@ -66,6 +73,19 @@ describe("asistente: proponer misiones", () => {
     expect(fetchMock.mock.calls[0]![0]).toBe("https://api.anthropic.com/v1/messages");
     const headers = fetchMock.mock.calls[0]![1]!.headers as Record<string, string>;
     expect(headers["x-api-key"]).toBe("clave-ficticia");
+  });
+
+  it("con la clave de Gemini llama a Gemini (clave en cabecera, no en la URL) y devuelve la misma forma de propuesta", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("GEMINI_API_KEY", "clave-gemini");
+    fetchMock.mockImplementation(async () => Response.json({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(FIXTURE(2)) }] } }] }));
+    const { teacher } = await withTeacher();
+    const result = await teacher.action(api.agent.generate, { objective: OBJETIVO, grades: [2] });
+    expect(result).toMatchObject({ status: "ok", failed: [], proposals: [{ grade: 2, metrics: { solutionStatus: "SOLVED" } }] });
+    const [url, options] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toMatch(/^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-3\.1-flash-lite:generateContent$/);
+    expect(String(url)).not.toContain("clave-gemini");
+    expect((options!.headers as Record<string, string>)["x-goog-api-key"]).toBe("clave-gemini");
   });
 
   it("lo que no pasa la revisión no se ofrece (nada de plantillas de respaldo) y se avisa por grado", async () => {
