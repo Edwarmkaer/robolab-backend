@@ -192,6 +192,20 @@ export default defineSchema({
   })
     .index("by_visibility", ["visibility"])
     .index("by_teacher", ["teacherId"]),
+  // Asistente de misiones (Anthropic): peticiones por docente (tope de gasto) y misiones verificadas que eligió.
+  agentUsage: defineTable({
+    teacherId: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_teacher_time", ["teacherId", "createdAt"]),
+  agentMissions: defineTable({
+    teacherId: v.id("users"),
+    grade: v.number(),
+    title: v.string(),
+    objective: v.string(),
+    mission: v.any(), // Mission v1 (domain/mission); parseCustomMission la revisa al guardar
+    metrics: v.any(), // evaluate_difficulty al guardar
+    createdAt: v.number(),
+  }).index("by_teacher", ["teacherId"]),
   labPlays: defineTable({
     missionId: v.string(), // id de MISSIONS (dominio) o id de labMissions
     level: v.number(), // subnivel 0, 1 o 2
