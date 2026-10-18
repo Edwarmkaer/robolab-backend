@@ -50,7 +50,11 @@ export const PasswordResetEmail = Email({
   async sendVerificationRequest({ identifier, token }, ctx?: unknown) {
     if (!isActionCtx(ctx)) throw new Error("Falta el contexto de Convex para registrar el envío.");
     const to = normalizeEmail(identifier);
-    const deliveryId = await ctx.runMutation(internal.mail.reserve, { to, kind: "password-reset" });
+    // `request` ya reservó el envío (y aplicó la política) antes de que Convex Auth creara el
+    // código; si se llegó aquí por otro camino, se reserva ahora.
+    const deliveryId =
+      (await ctx.runQuery(internal.mail.claimPending, { to, kind: "password-reset" })) ??
+      (await ctx.runMutation(internal.mail.reserve, { to, kind: "password-reset" }));
     try {
       const delivery = await sendEmail(resetEmail(to, token));
       await ctx.runMutation(internal.mail.settle, {
@@ -78,9 +82,15 @@ export const request = action({
   handler: async (ctx, args): Promise<{ sentTo: string }> => {
     const email = normalizeEmail(args.email);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ConvexError("Escribe un correo válido.");
+    // La política de envío se aplica ANTES de pedirle el código a Convex Auth: al crear un
+    // código nuevo, Convex Auth borra el anterior, y si el envío se rechazara después, la
+    // docente se quedaría con un código en el correo que ya no sirve.
+    const deliveryId = await ctx.runMutation(internal.mail.reserve, { to: email, kind: "password-reset" });
     try {
       await ctx.runAction(api.auth.signIn, { provider: "password", params: { email, flow: "reset" } });
     } catch (error) {
+      // Sin correo enviado, la reserva no debe contar para la espera entre envíos.
+      await ctx.runMutation(internal.mail.settle, { deliveryId, status: "failed" });
       if (error instanceof ConvexError) throw error;
       if (/InvalidAccountId/.test(message(error))) {
         throw new ConvexError("No hay una cuenta de docente con ese correo. Revisa cómo lo escribiste.");
