@@ -6,10 +6,14 @@
  * demás baja.
  */
 import { v } from "convex/values";
+import { catalogItem } from "../domain/classroom/catalog";
+import { summarizeRetoProgress } from "../domain/classroom/retoProgress";
 import { type Best, bestOf } from "../domain/evaluation/ranking";
+import type { Id } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { classroomLabel, requireOwnClassroom, requireTeacher } from "./lib/access";
 import { finishedAttempts, groupByStudent } from "./lib/attempts";
+import { assignmentsOf, classPlays, studentsOf } from "./lib/classwork";
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const average = (values: readonly number[]) =>
@@ -85,6 +89,42 @@ export const classProgress = query({
           }),
         }))
         .sort((a, b) => a.displayName.localeCompare(b.displayName, "es")),
+    };
+  },
+});
+
+/**
+ * Progreso de la clase reto por reto (pestaña Progreso): una columna por reto
+ * asignado, en el orden en que se asignó, y una fila por alumno con su resultado
+ * en cada uno. No cuenta los borradores; los retos cerrados sí, porque ya son
+ * parte de lo que la clase aprendió. `attention` solo lista lo observable
+ * (retos seguidos sin lograr, retos sin empezar), sin diagnosticar.
+ */
+export const classRetosProgress = query({
+  args: { classroomId: v.id("classrooms") },
+  handler: async (ctx, { classroomId }) => {
+    const teacherId = await requireTeacher(ctx);
+    const classroom = await requireOwnClassroom(ctx, teacherId, classroomId);
+    const students = await studentsOf(ctx, classroomId);
+    const assignments = (await assignmentsOf(ctx, classroomId)).filter((a) => a.visibility !== "draft");
+    const plays = await classPlays(ctx, classroomId);
+
+    const refs = assignments.flatMap((a) => {
+      const item = catalogItem(a.challengeId);
+      return item ? [{ assignmentId: a._id as string, challengeId: a.challengeId, title: item.title, createdAt: a.createdAt }] : [];
+    });
+    const closed = new Set(assignments.filter((a) => a.closedAt !== undefined).map((a) => a._id as string));
+    const progress = summarizeRetoProgress(
+      refs,
+      students.map((s) => ({ studentId: s._id, displayName: s.displayName })),
+      plays,
+    );
+
+    return {
+      classroomLabel: classroomLabel(classroom),
+      retos: progress.retos.map((r) => ({ ...r, assignmentId: r.assignmentId as Id<"assignments">, closed: closed.has(r.assignmentId) })),
+      students: progress.students.map((s) => ({ ...s, studentId: s.studentId as Id<"students"> })),
+      attention: progress.attention.map((a) => ({ ...a, studentId: a.studentId as Id<"students"> })),
     };
   },
 });

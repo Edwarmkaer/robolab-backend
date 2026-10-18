@@ -5,7 +5,7 @@
  */
 import { ConvexError, v } from "convex/values";
 import { catalog, catalogItem } from "../domain/classroom/catalog";
-import { summarizeChallenge } from "../domain/classroom/challengeStats";
+import { type PlayRow, type StudentRef, summarizeChallenge } from "../domain/classroom/challengeStats";
 import { missionById } from "../domain/lab/mission";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, mutation, query } from "./_generated/server";
@@ -190,5 +190,83 @@ export const available = query({
       difficulty,
       emoji,
     }));
+  },
+});
+
+/**
+ * Todos los retos del docente en una sola lista (pestaña Retos): los de todas sus
+ * clases y los que aún no asignó, el más nuevo primero. Cada uno trae cuántos de
+ * su clase lo lograron; si no tiene clase (o la clase no tiene alumnos) las cifras
+ * son 0, no un dato inventado.
+ */
+export const listMine = query({
+  args: {},
+  handler: async (ctx) => {
+    const teacherId = await requireTeacher(ctx);
+    const mine = await ctx.db
+      .query("assignments")
+      .withIndex("by_teacher", (q) => q.eq("teacherId", teacherId))
+      .collect();
+    mine.sort((a, b) => b.createdAt - a.createdAt);
+
+    type ClassFacts = { label: string; students: StudentRef[]; plays: PlayRow[] };
+    const classes = new Map<Id<"classrooms">, ClassFacts | null>();
+    const factsOf = async (classroomId: Id<"classrooms">): Promise<ClassFacts | null> => {
+      if (!classes.has(classroomId)) {
+        const classroom = await ctx.db.get(classroomId);
+        classes.set(
+          classroomId,
+          classroom ? { label: classroomLabel(classroom), students: await studentRefs(ctx, classroomId), plays: await classPlays(ctx, classroomId) } : null,
+        );
+      }
+      return classes.get(classroomId)!;
+    };
+
+    const rows = [];
+    for (const a of mine) {
+      const item = catalogItem(a.challengeId);
+      if (!item) continue;
+      const facts = a.classroomId ? await factsOf(a.classroomId) : null;
+      const summary = facts ? summarizeChallenge(facts.students, facts.plays, a.challengeId) : null;
+      rows.push({
+        assignmentId: a._id,
+        challengeId: a.challengeId,
+        title: item.title,
+        topic: item.topic,
+        topicName: item.topicName,
+        level: item.level,
+        kind: item.kind,
+        emoji: item.emoji,
+        visibility: a.visibility,
+        classroomId: facts ? (a.classroomId ?? null) : null,
+        classroomLabel: facts?.label ?? null,
+        closed: a.closedAt !== undefined,
+        studentCount: summary?.studentCount ?? 0,
+        studentsSolved: summary?.studentsSolved ?? 0,
+        solvedPercent: summary?.solvedPercent ?? 0,
+        createdAt: a.createdAt,
+      });
+    }
+    return rows;
+  },
+});
+
+/** Cierra un reto: los alumnos dejan de verlo; sus resultados se conservan. Cerrar uno ya cerrado no hace nada. */
+export const close = mutation({
+  args: { assignmentId: v.id("assignments") },
+  handler: async (ctx, { assignmentId }): Promise<void> => {
+    const teacherId = await requireTeacher(ctx);
+    const assignment = await requireOwnAssignment(ctx, teacherId, assignmentId);
+    if (assignment.closedAt === undefined) await ctx.db.patch(assignmentId, { closedAt: Date.now() });
+  },
+});
+
+/** Vuelve a abrir un reto cerrado. Abrir uno ya abierto no hace nada. */
+export const reopen = mutation({
+  args: { assignmentId: v.id("assignments") },
+  handler: async (ctx, { assignmentId }): Promise<void> => {
+    const teacherId = await requireTeacher(ctx);
+    const assignment = await requireOwnAssignment(ctx, teacherId, assignmentId);
+    if (assignment.closedAt !== undefined) await ctx.db.patch(assignmentId, { closedAt: undefined });
   },
 });

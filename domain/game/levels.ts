@@ -12,6 +12,12 @@ export type EducationLevel = "inicial" | "primaria" | "secundaria";
 
 export const EDUCATION_LEVELS: readonly EducationLevel[] = ["inicial", "primaria", "secundaria"];
 
+/**
+ * Los niveles que hoy se ofrecen en la web. Secundaria sigue en `EducationLevel`
+ * porque pudo haber clases creadas con ese nivel; la web ya no lo ofrece.
+ */
+export const ACTIVE_LEVELS: readonly EducationLevel[] = ["inicial", "primaria"];
+
 export const LEVEL_LABEL: Record<EducationLevel, string> = {
   inicial: "Inicial",
   primaria: "Primaria",
