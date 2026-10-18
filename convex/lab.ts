@@ -61,6 +61,7 @@ const summary = (doc: Doc<"labMissions">, mission: Mission) => ({
   topic: mission.topic,
   levels: mission.levels,
   stations: mission.stations.length,
+  mission,
 });
 
 // ---------- Docente ----------
@@ -190,7 +191,7 @@ export const get = query({
     const mine = userId !== null && doc.teacherId === userId;
     if (doc.visibility !== "public" && !mine) return null;
     const mission = readMission(doc);
-    return mission ? { ...summary(doc, mission), mission, mine } : null;
+    return mission ? { ...summary(doc, mission), mine } : null;
   },
 });
 
