@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TOPICS, type Topic } from "../explore/challenges";
+import { CHALLENGES, TOPICS, type Topic } from "../explore/challenges";
 import { execute } from "./execute";
 import { type Dir, MISSIONS, type Mission, levelsFor, missionById, missionsFor, sameCell } from "./mission";
 import { MISSION_ORDER, MORE_MISSIONS } from "./missions";
@@ -142,6 +142,14 @@ describe("misiones de Primaria: contenido propio de cada una", () => {
     for (const m of MORE_MISSIONS) {
       expect(m.hints[0].length, m.id).toBeLessThan(m.hints[2].length);
       expect(new Set(m.hints).size, m.id).toBe(3);
+    }
+  });
+
+  it("ningún título se repite, ni con el de un reto de bloques del mismo tópico (los de Primaria que ya no se listan tampoco)", () => {
+    expect(new Set(MISSIONS.map((m) => m.title)).size).toBe(MISSIONS.length);
+    for (const m of MISSIONS) {
+      const clash = CHALLENGES.find((c) => c.topic === m.topic && c.title === m.title);
+      expect(clash?.id, m.id).toBeUndefined();
     }
   });
 

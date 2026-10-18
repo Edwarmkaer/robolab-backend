@@ -176,7 +176,7 @@ const SPECS: readonly Spec[] = [
   },
   {
     id: "primaria-tecnologia-charco",
-    title: "El charco",
+    title: "Esquiva el charco",
     topic: "tecnologia",
     emoji: "💧",
     story: "Kusi quiere llegar a la meta sin cruzar el charco: el agua es terreno amarillo y gasta el triple. Recoge la caja de herramientas en A y el casco en B.",
@@ -190,7 +190,7 @@ const SPECS: readonly Spec[] = [
   },
   {
     id: "primaria-tecnologia-menos",
-    title: "Menos pasos",
+    title: "Energía justa",
     topic: "tecnologia",
     emoji: "🧩",
     story: "Kusi sube por un camino con paredes. Pasa por A y por B y llega a la meta sin dar pasos de más: cada uno gasta energía.",
@@ -218,7 +218,7 @@ const SPECS: readonly Spec[] = [
   },
   {
     id: "primaria-tecnologia-paradas",
-    title: "Dos paradas",
+    title: "Pan para los vecinos",
     topic: "tecnologia",
     emoji: "🚩",
     story: "Kusi lleva pan a dos vecinos: uno vive en A y el otro en B. Después de repartirlo, llega a la meta.",
@@ -232,7 +232,7 @@ const SPECS: readonly Spec[] = [
   },
   {
     id: "primaria-tecnologia-casa",
-    title: "A casa",
+    title: "Camino a casa",
     topic: "tecnologia",
     emoji: "🏠",
     story: "Kusi termina de jugar y vuelve a casa. Antes pasa por la tienda (A) y por la panadería (B) y cuida la energía de su batería.",
