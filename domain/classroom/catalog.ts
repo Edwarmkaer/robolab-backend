@@ -6,6 +6,7 @@
  */
 import { CHALLENGES, type Challenge, KIND_LABEL, type Topic, topicInfo } from "../explore/challenges";
 import type { EducationLevel } from "../game/levels";
+import { openChallenges } from "../explore/progress";
 import type { Cell, Heading } from "../game/map";
 import { MISSIONS, type Mission } from "../lab/mission";
 
@@ -91,11 +92,22 @@ function fromMission(m: Mission): CatalogItem {
   };
 }
 
-/** Todo lo asignable, en el orden en que se presenta: primero los retos de bloques y después las misiones. */
+/**
+ * Todo lo asignable, en el orden en que se presenta: primero los retos de bloques
+ * de Inicial y después las misiones de Primaria. Los retos de bloques de Primaria
+ * (legado) ya no se ofrecen: ese nivel juega misiones.
+ */
 export function catalog(): readonly CatalogItem[] {
-  return [...CHALLENGES.map(fromChallenge), ...MISSIONS.map(fromMission)];
+  return [...openChallenges().map(fromChallenge), ...MISSIONS.map(fromMission)];
 }
 
+/**
+ * La ficha de un reto por su id. Reconoce también los retos de bloques de Primaria
+ * que ya no se ofrecen, porque una clase pudo asignarlos antes.
+ */
 export function catalogItem(challengeId: string): CatalogItem | undefined {
-  return catalog().find((item) => item.challengeId === challengeId);
+  const challenge = CHALLENGES.find((c) => c.id === challengeId);
+  if (challenge) return fromChallenge(challenge);
+  const mission = MISSIONS.find((m) => m.id === challengeId);
+  return mission ? fromMission(mission) : undefined;
 }
