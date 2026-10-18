@@ -170,6 +170,33 @@ export default defineSchema({
     key: v.string(),
   }).index("by_day_key", ["day", "key"]),
 
+  // Laboratorio multigrado: misiones de Primaria creadas por docentes y las partidas
+  // (anónimas) de cualquier misión, sea del modo abierto o de un docente.
+  labMissions: defineTable({
+    teacherId: v.optional(v.id("users")), // sin docente: la misión semilla
+    title: v.string(),
+    theme: v.string(),
+    prompt: v.string(),
+    mission: v.any(), // Mission de domain/lab; parseMission la revisa al leer
+    visibility: v.union(v.literal("public"), v.literal("draft")),
+    createdAt: v.number(),
+  })
+    .index("by_visibility", ["visibility"])
+    .index("by_teacher", ["teacherId"]),
+  labPlays: defineTable({
+    missionId: v.string(), // id de MISSIONS (dominio) o id de labMissions
+    level: v.number(), // subnivel 0, 1 o 2
+    deviceId: v.optional(v.string()),
+    ok: v.boolean(),
+    error: v.optional(v.string()),
+    energy: v.number(),
+    steps: v.number(),
+    hints: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_mission_time", ["missionId", "createdAt"])
+    .index("by_device_time", ["deviceId", "createdAt"]),
+
   emailDeliveries: defineTable({
     to: v.string(),
     kind: v.literal("password-reset"),

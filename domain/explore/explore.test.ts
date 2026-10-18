@@ -5,7 +5,8 @@ import { simulate } from "../game/simulator";
 import { shortestSolution } from "../game/solve";
 import { CHALLENGES, type Challenge, TOPICS, type Topic, challengeById, challengesFor, nextChallenge } from "./challenges";
 import { checkPrediction, checkProgram, finalCell } from "./check";
-import { type ExploreProgress, catalogFor, emptyProgress, levelProgress, openChallenges, parseProgress, recordPlay, topicProgress } from "./progress";
+import { MISSIONS } from "../lab/mission";
+import { type ExploreProgress, catalogFor, emptyProgress, levelProgress, openChallenges, openIds, parseProgress, recordPlay, topicProgress } from "./progress";
 
 const F = move("FORWARD");
 const L = move("TURN_LEFT");
@@ -13,6 +14,9 @@ const R = move("TURN_RIGHT");
 
 /** Retos de bloques por tópico: los de Inicial del Figma (Primaria se juega con misiones). */
 const BLOCK_CHALLENGES: Record<Topic, number> = { ciencia: 6, tecnologia: 6, ingenieria: 5, artes: 5, matematicas: 6 };
+/** Misiones de Primaria por tópico (el Figma M8 suma 12, 12, 10, 9 y 11 entre ambos niveles). */
+const MISSION_COUNT: Record<Topic, number> = { ciencia: 6, tecnologia: 6, ingenieria: 5, artes: 4, matematicas: 5 };
+const TOTAL = Object.fromEntries(TOPICS.map((t) => [t.id, BLOCK_CHALLENGES[t.id] + MISSION_COUNT[t.id]])) as Record<Topic, number>;
 
 /**
  * Los seis retos de bloques de Primaria (Tecnología) son legado: ya no se listan, pero siguen
@@ -78,7 +82,7 @@ describe("catálogo de retos", () => {
     expect(where.kind === "predict" && checkPrediction(where, LEGACY_SOLUTIONS["primaria-donde"] as { row: number; col: number }).ok).toBe(true);
     // No se listan: ni en el catálogo ni en el avance.
     expect(openChallenges().some((c) => c.level === "primaria")).toBe(false);
-    expect(catalogFor("tecnologia", "primaria")).toEqual([]);
+    expect(catalogFor("tecnologia", "primaria").some((item) => item.id in LEGACY_SOLUTIONS)).toBe(false);
   });
 
   it("los programas dados solo usan bloques de su nivel, y el de corregir empieza con error", () => {
@@ -88,14 +92,19 @@ describe("catálogo de retos", () => {
     }
   });
 
-  it("tiene las cantidades del Figma por tópico en Inicial (bloques) y ninguno listado de bloques en Primaria", () => {
+  it("tiene las cantidades del Figma (M8) por tópico y nivel: bloques en Inicial y misiones en Primaria", () => {
     for (const t of TOPICS) {
       expect(t.available, t.id).toBe(true);
       expect(challengesFor(t.id, "inicial").length, t.id).toBe(BLOCK_CHALLENGES[t.id]);
       expect(catalogFor(t.id, "inicial").length, t.id).toBe(BLOCK_CHALLENGES[t.id]);
+      expect(catalogFor(t.id, "primaria").length, t.id).toBe(MISSION_COUNT[t.id]);
+      expect(catalogFor(t.id, "primaria").every((item) => item.id.startsWith("primaria-")), t.id).toBe(true);
       expect(catalogFor(t.id, "secundaria"), t.id).toEqual([]);
+      expect(catalogFor(t.id).length, t.id).toBe(TOTAL[t.id]);
     }
+    expect(TOTAL).toEqual({ ciencia: 12, tecnologia: 12, ingenieria: 10, artes: 9, matematicas: 11 });
     expect(openChallenges()).toHaveLength(28);
+    expect(MISSIONS).toHaveLength(26);
     expect(CHALLENGES).toHaveLength(28 + Object.keys(LEGACY_SOLUTIONS).length);
   });
 
@@ -179,22 +188,30 @@ describe("avance guardado en el dispositivo", () => {
     expect(p.records["inicial-ciencia-probeta"]).toMatchObject({ solved: true, plays: 4, best: { runs: 6, hints: 0 } });
   });
 
-  it("resume cuántos retos resolvió por tópico y por nivel", () => {
+  it("resume cuántos retos y misiones resolvió por tópico y por nivel", () => {
     let p = play(emptyProgress(), "inicial-ciencia-probeta", true, 2);
     p = play(p, "inicial-ciencia-lupa", true, 1);
     p = play(p, "inicial-paseo", true, 1);
     p = play(p, "inicial-ciencia-derrame", false, 5);
-    expect(topicProgress(p, "ciencia")).toEqual({ solved: 2, total: 6 });
-    expect(topicProgress(p, "tecnologia")).toEqual({ solved: 1, total: 6 });
-    expect(topicProgress(p, "artes")).toEqual({ solved: 0, total: 5 });
+    p = play(p, "primaria-ciencia-huerto", true, 3);
+    expect(topicProgress(p, "ciencia")).toEqual({ solved: 3, total: TOTAL.ciencia });
+    expect(topicProgress(p, "tecnologia")).toEqual({ solved: 1, total: TOTAL.tecnologia });
+    expect(topicProgress(p, "artes")).toEqual({ solved: 0, total: TOTAL.artes });
     expect(levelProgress(p, "ciencia", "inicial")).toEqual({ solved: 2, total: 6 });
+    expect(levelProgress(p, "ciencia", "primaria")).toEqual({ solved: 1, total: 6 });
     expect(levelProgress(p, "ciencia", "secundaria")).toEqual({ solved: 0, total: 0 });
+    expect(openIds("ciencia")).toHaveLength(TOTAL.ciencia);
   });
 
   it("un reto de bloques de Primaria jugado antes sigue guardado pero ya no cuenta en el avance", () => {
     const p = play(emptyProgress(), "primaria-casa", true, 2);
     expect(parseProgress(JSON.stringify(p)).records["primaria-casa"]).toMatchObject({ solved: true });
-    expect(topicProgress(p, "tecnologia")).toEqual({ solved: 0, total: 6 });
+    expect(topicProgress(p, "tecnologia")).toEqual({ solved: 0, total: TOTAL.tecnologia });
+  });
+
+  it("guarda y vuelve a leer lo jugado en una misión", () => {
+    const p = play(emptyProgress(), "primaria-tecnologia-materiales", true, 3);
+    expect(parseProgress(JSON.stringify(p)).records["primaria-tecnologia-materiales"]).toMatchObject({ solved: true, plays: 1 });
   });
 
   it("lee con cuidado lo guardado: datos dañados o viejos empiezan de cero", () => {
