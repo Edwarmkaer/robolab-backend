@@ -8,7 +8,7 @@ Educación Escolar). Este repo tiene todo lo que no es pantalla:
   en [Convex](https://convex.dev), con autenticación de docentes
   (`@convex-dev/auth`), clases con código (`ABC-123`) a las que los alumnos se
   unen con un apodo, retos asignados a cada clase con sus resultados,
-  evaluaciones, ranking, retos abiertos anónimos, correo de recuperación y el
+  evaluaciones, ranking, carreras y retos colaborativos en vivo, retos abiertos anónimos, correo de recuperación y el
   relé del robot.
 - `domain/`: el dominio compartido en TypeScript puro (sin React, sin Convex,
   sin red): intérprete de bloques, simulador, mapas y niveles, calificación,
@@ -86,6 +86,34 @@ que una evaluación real. Es una función interna: no se puede llamar desde el
 navegador y no guarda contraseñas.
 
 `npx convex run explore:stats` da las cifras de uso anónimo de los retos abiertos.
+
+### Retos en vivo
+
+`api.liveRooms` permite crear salas para una clase y recibir sus cambios con
+consultas reactivas de Convex. El docente crea el laberinto, espera al menos un
+participante, inicia y cierra la sala. Los alumnos usan sus sesiones actuales;
+deben unirse antes del inicio y conservan sus resultados al volver.
+
+En carrera (`race`), cada alumno envía su programa de hasta 60 movimientos. El
+servidor lo simula desde el inicio y asigna un puesto único al llegar, incluso
+si dos llegadas comparten milisegundo. Los demás pueden seguir hasta el cierre;
+los programas rivales nunca se incluyen en la respuesta al alumno.
+
+En colaboración (`cooperative`), todos editan un programa compartido. Cada
+edición y ejecución lleva su revisión; una pestaña desactualizada recibe un
+error y debe revisar el programa confirmado. El servidor ejecuta la versión
+compartida y bloquea cambios después de resolver o cerrar.
+
+Las solicitudes de ejecución llevan un `requestId` estable para reintentar sin
+duplicar contadores ni llegadas. Cada participante puede ejecutar como máximo
+una vez cada 250 ms. Cada sala admite 100 participantes y las listas muestran
+las últimas 30 salas, incluidas las cerradas. Al borrar la clase, su historial
+en vivo se elimina por lotes internos de 100 filas, incluidos los reintentos.
+Los participantes representan inscripciones, no presencia en línea.
+
+Los tres mapas fijos y las reglas puras viven en `domain/live/`. Las pruebas
+comprueban soluciones, permisos por clase, empates, reenvíos, revisiones y
+limpieza en cascada.
 
 ### Robot por wifi y simulador
 
