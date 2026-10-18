@@ -16,6 +16,7 @@ import type * as evaluations from "../evaluations.js";
 import type * as explore from "../explore.js";
 import type * as http from "../http.js";
 import type * as impact from "../impact.js";
+import type * as lab from "../lab.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_attempts from "../lib/attempts.js";
 import type * as lib_codes from "../lib/codes.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   explore: typeof explore;
   http: typeof http;
   impact: typeof impact;
+  lab: typeof lab;
   "lib/access": typeof lib_access;
   "lib/attempts": typeof lib_attempts;
   "lib/codes": typeof lib_codes;
